@@ -1,0 +1,5 @@
+<?php
+
+return [
+    'STORAGE_FIREBASE_CREDENTIALS' => env("FIREBASE_CREDENTIALS", ""),
+];

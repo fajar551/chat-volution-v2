@@ -1,0 +1,71 @@
+@import './scrollbars.scss';
+
+.tooltip-dark {
+  position: absolute !important;
+  bottom: -15px !important;
+  right: 0 !important;
+  left: 0 !important;
+  background-color: #36404a !important;
+  border-radius: 10px;
+  padding-left: 0.5rem;
+  padding-right: 0.5em;
+
+  .tooltip-body {
+    overflow-x: auto;
+    overflow-y: none;
+    @include scrollbars(10px, #495057, 5px, #5f6872);
+    .content {
+      color: white;
+      padding-right: 10px !important;
+      padding-left: 10px !important;
+      padding-top: 5px !important;
+      padding-bottom: 5px !important;
+      margin: 0 !important;
+      background-color: rgba(73, 80, 87, 0.3) !important;
+      border-radius: 5px !important;
+      cursor: pointer !important;
+      line-height: 2 !important;
+      &:hover {
+        background-color: #495057 !important;
+      }
+      &:focus {
+        background-color: #495057 !important;
+      }
+    }
+  }
+}
+
+.tooltip-light {
+  position: absolute !important;
+  bottom: -15px !important;
+  right: 0 !important;
+  left: 0 !important;
+  background-color: #f7f7ff !important;
+  border-radius: 10px;
+  padding-left: 0.5rem;
+  padding-right: 0.5em;
+
+  .tooltip-body {
+    overflow-x: auto;
+    overflow-y: none;
+    @include scrollbars(10px, #cbcdd0, 5px, #878a92);
+    .content {
+      color: white;
+      padding-right: 10px !important;
+      padding-left: 10px !important;
+      padding-top: 5px !important;
+      padding-bottom: 5px !important;
+      margin: 0 !important;
+      background-color: rgba(73, 80, 87, 0.3) !important;
+      border-radius: 5px !important;
+      cursor: pointer !important;
+      line-height: 2 !important;
+      &:hover {
+        background-color: #495057 !important;
+      }
+      &:focus {
+        background-color: #495057 !important;
+      }
+    }
+  }
+}

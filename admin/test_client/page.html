@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Client Area</title>
+    </head>
+
+    <body>
+        <!-- <script src="lib/qchat.js?api_key=$2y$10$6HO6nfYMwdJg8L.WFXaEb.LG5ApFemWKWG7PSBKnJWE7GJZ7wyJ/S" async defer>
+        </script> -->
+
+        <script>
+            var hostName = location.hostname;
+            var script = document.createElement("script");
+            script.src =
+                "lib/qchat.js?api_key=$2y$10$VBnp5xnwCkDRTxo.LsWA2./HHL4CaQLonVfiretv8TPkbwrZS8Ivy";
+
+            // if (hostName == 'client.chatvolution.my.id') {
+            //     script.src = 'lib/qchat.js?api_key=$2y$10$ex3Fb6Hoi9Un2CxeF3iWyOin7nJtHzDxqyttIH9qHpO2tRiRBnubq';
+            // } else {
+            //     script.src = 'lib/qchat.js?api_key=$2y$10$6HO6nfYMwdJg8L.WFXaEb.LG5ApFemWKWG7PSBKnJWE7GJZ7wyJ/S';
+            // }
+            document.body.appendChild(script);
+        </script>
+    </body>
+</html>

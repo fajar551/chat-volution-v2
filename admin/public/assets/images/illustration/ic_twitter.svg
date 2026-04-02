@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 59.1 (86144) - https://sketch.com -->
+    <title>icon-large / twitter</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <rect id="path-1" x="0" y="0" width="56" height="56" rx="28"/>
+        <filter x="-11.6%" y="-9.8%" width="123.2%" height="123.2%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"/>
+            <feGaussianBlur stdDeviation="2" in="shadowOffsetOuter1" result="shadowBlurOuter1"/>
+            <feColorMatrix values="0 0 0 0 0.0980392157   0 0 0 0 0.0980392157   0 0 0 0 0.0980392157  0 0 0 0.05 0" type="matrix" in="shadowBlurOuter1"/>
+        </filter>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="1.0-[Setup]-Integration---Telegram-" transform="translate(-860.000000, -220.000000)">
+            <g id="Group---content-integration" transform="translate(279.000000, 84.000000)">
+                <g id="icon-/-twitter" transform="translate(581.000000, 136.000000)">
+                    <g id="Twitter_Logo_WhiteOnBlue" transform="translate(4.000000, 4.000000)">
+                        <g id="Dark_Blue" fill-rule="nonzero">
+                            <g id="Rectangle">
+                                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"/>
+                                <use fill="#1DA1F2" xlink:href="#path-1"/>
+                            </g>
+                        </g>
+                        <g id="Logo_FIXED" transform="translate(2.000000, 2.000000)">
+                            <path d="M20.35465,39.960675 C32.8547,39.960675 39.6917,29.604475 39.6917,20.623625 C39.6917,20.329475 39.6917,20.03665 39.671825,19.74515 C41.0019016,18.7830819 42.150046,17.5918652 43.0625,16.227275 C41.8221398,16.7768873 40.5063488,17.137323 39.15905,17.29655 C40.5777858,16.4472012 41.6396137,15.1113229 42.146925,13.537525 C40.8128587,14.3291533 39.3533561,14.8870534 37.8314,15.18715 C35.7247597,12.9470974 32.3773281,12.3988367 29.6661528,13.8498009 C26.9549774,15.3007651 25.5543144,18.3901066 26.249575,21.3855 C20.7851369,21.1115556 15.6939304,18.5305533 12.243,14.284825 C10.4391752,17.3901543 11.3605339,21.3627888 14.3471,23.3571 C13.2655571,23.325045 12.2075952,23.0332875 11.2625,22.50645 C11.2625,22.534275 11.2625,22.563425 11.2625,22.592575 C11.2633853,25.8276857 13.5438207,28.6140841 16.714875,29.254675 C15.7143272,29.5275456 14.6645443,29.5674337 13.646175,29.371275 C14.536506,32.1397602 17.0879613,34.0363136 19.995575,34.090925 C17.5890239,35.9822723 14.6161539,37.0090092 11.555325,37.005925 C11.0145972,37.0048869 10.4743954,36.9721474 9.9375,36.907875 C13.0454676,38.9023664 16.6617603,39.9602999 20.35465,39.955375" id="Path" fill="#FFFFFF" fill-rule="nonzero"/>
+                            <rect id="Rectangle" x="0" y="0" width="53" height="53"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

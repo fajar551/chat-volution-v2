@@ -1,0 +1,423 @@
+/* dark mode */
+.formContenteditableDark[contentEditable='true'] {
+  max-height: 130px !important;
+  overflow: auto;
+  transition: height 100ms ease;
+}
+
+.formContenteditableDark[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.formContenteditableDark[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+.formContenteditableDark[contentEditable='true']::-webkit-scrollbar {
+  width: 10px;
+  background-color: #36404a !important;
+}
+
+.formContenteditableDark[contentEditable='true']::-webkit-scrollbar-track {
+  background-color: #36404a !important;
+}
+
+.formContenteditableDark[contentEditable='true']::-webkit-scrollbar-thumb {
+  background-color: #262e35 !important;
+  border-radius: 5px;
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true'] {
+  max-height: 130px !important;
+  /* max-width: 620px !important; */
+  overflow: auto;
+  transition: height 100ms ease;
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true']::-webkit-scrollbar {
+  width: 10px;
+  background-color: #36404a !important;
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true']::-webkit-scrollbar-track {
+  background-color: #36404a !important;
+}
+
+.formContenteditableDarkRightBarActive[contentEditable='true']::-webkit-scrollbar-thumb {
+  background-color: #262e35 !important;
+  border-radius: 5px;
+}
+
+/* light mode */
+.formContenteditableLight[contentEditable='true'] {
+  max-width: 620px !important;
+  max-height: 130px !important;
+  overflow: auto;
+  transition: height 100ms ease;
+}
+
+.formContenteditableLight[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.formContenteditableLight[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+.formContenteditableLight[contentEditable='true']::-webkit-scrollbar {
+  width: 10px;
+  background-color: #e6ebf5 !important;
+}
+
+.formContenteditableLight[contentEditable='true']::-webkit-scrollbar-track {
+  background-color: #e6ebf5 !important;
+}
+
+.formContenteditableLight[contentEditable='true']::-webkit-scrollbar-thumb {
+  background-color: #fff !important;
+  border-radius: 5px;
+}
+
+.formContenteditableLightBarActive[contentEditable='true'] {
+  max-width: 620px !important;
+  max-height: 130px !important;
+  overflow: auto;
+  transition: height 100ms ease;
+}
+
+.formContenteditableLightBarActive[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.formContenteditableLightBarActive[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+.formContenteditableLightBarActive[contentEditable='true']::-webkit-scrollbar {
+  width: 10px;
+  background-color: #e6ebf5 !important;
+}
+
+.formContenteditableLightBarActive[contentEditable='true']::-webkit-scrollbar-track {
+  background-color: #e6ebf5 !important;
+}
+
+.formContenteditableLightBarActive[contentEditable='true']::-webkit-scrollbar-thumb {
+  background-color: #fff !important;
+  border-radius: 5px;
+}
+
+/* preview */
+.contentEditablePreview[contentEditable='true'] {
+  max-width: 460px;
+  min-width: 350px;
+}
+
+.contentEditablePreview[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.contentEditablePreview[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+@media only screen and (max-width: 2560px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1800px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 1400px !important;
+  }
+}
+
+@media only screen and (max-width: 2522px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1750px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 1200px !important;
+  }
+}
+
+@media only screen and (max-width: 2472px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1700px !important;
+  }
+}
+
+@media only screen and (max-width: 2422px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1650px !important;
+  }
+}
+
+@media only screen and (max-width: 2372px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1600px !important;
+  }
+}
+
+@media only screen and (max-width: 2322px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1550px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 1100px !important;
+  }
+}
+
+@media only screen and (max-width: 2272px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1500px !important;
+  }
+}
+
+@media only screen and (max-width: 2222px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1450px !important;
+  }
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 1000px !important;
+  }
+}
+
+@media only screen and (max-width: 2172px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1400px !important;
+  }
+}
+
+@media only screen and (max-width: 2122px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1350px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 900px !important;
+  }
+}
+
+@media only screen and (max-width: 2072px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1300px !important;
+  }
+}
+
+@media only screen and (max-width: 2022px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1250px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 800px !important;
+  }
+}
+
+@media only screen and (max-width: 1972px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1200px !important;
+  }
+}
+
+@media only screen and (max-width: 1922px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1150px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 700px !important;
+  }
+}
+
+@media only screen and (max-width: 1872px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1100px !important;
+  }
+}
+
+@media only screen and (max-width: 1822px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1050px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 600px !important;
+  }
+}
+
+@media only screen and (max-width: 1772px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 1000px !important;
+  }
+}
+
+@media only screen and (max-width: 1722px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 900px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 500px !important;
+  }
+}
+
+@media only screen and (max-width: 1622px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 800px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 450px !important;
+  }
+}
+
+@media only screen and (max-width: 1553px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 700px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 395px !important;
+  }
+}
+
+@media only screen and (max-width: 1498px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 650px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 350px !important;
+  }
+}
+
+@media only screen and (max-width: 1455px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 650px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 295px !important;
+  }
+}
+
+@media only screen and (max-width: 1398px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 600px !important;
+  }
+
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 250px !important;
+  }
+}
+
+@media only screen and (max-width: 1350px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 500px !important;
+  }
+}
+
+@media only screen and (max-width: 1295px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 400px !important;
+  }
+}
+
+@media only screen and (max-width: 1290px) {
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 170px !important;
+  }
+}
+
+@media only screen and (max-width: 1275px) {
+  .formContenteditableDarkRightBarActive[contentEditable='true'],
+  .formContenteditableLightBarActive[contentEditable='true'] {
+    max-width: 160px !important;
+  }
+}
+
+@media only screen and (max-width: 1122px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 375px !important;
+  }
+}
+
+@media only screen and (max-width: 1097px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 350px !important;
+  }
+}
+
+@media only screen and (max-width: 1072px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 300px !important;
+  }
+}
+
+@media only screen and (max-width: 1022px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 250px !important;
+  }
+}
+
+@media only screen and (max-width: 991px) {
+  .formContenteditableDark[contentEditable='true'],
+  .formContenteditableLight[contentEditable='true'] {
+    max-width: 800px !important;
+  }
+}

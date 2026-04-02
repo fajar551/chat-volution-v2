@@ -1,0 +1,18 @@
+em-emoji-picker {
+  --border-radius: 0;
+  --font-family: 'nunito', 'sans', smooth;
+  --font-size: 16px;
+  --shadow: none;
+  --color-border-over: rgba(221, 131, 29, 1);
+  --color-border: rgba(254, 254, 254, 1);
+  --rgb-accent: 189, 112, 25;
+  --rgb-color: 217, 217, 217;
+  --rgb-input: 254, 254, 254;
+  max-height: calc(100vh - 90vh);
+}
+
+@media only screen and (min-width: 350px) {
+  em-emoji-picker {
+    max-height: 50px;
+  }
+}

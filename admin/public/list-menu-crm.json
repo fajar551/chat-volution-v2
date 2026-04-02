@@ -1,0 +1,101 @@
+[
+    {
+        "main_menu": "Home",
+        "link":"/crm",
+        "icon":"fas fa-house-user",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "main_menu": "Accounts",
+        "link":"/crm-accounts",
+        "icon":"fas fa-city",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "main_menu": "Contacts",
+        "link":"/crm-contacts",
+        "icon":"fas fa-id-card",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "main_menu": "Leads",
+        "link":"/crm-leads",
+        "icon":"fas fa-user-tie",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "main_menu": "Opportunities",
+        "link":"/crm-opportunities",
+        "icon":"fas fa-user-tie",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "main_menu":"Tools",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-tools",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"Tasks",
+                "link":"/crm-tasks",
+                "icon":"fas fa-tasks",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Calendar",
+                "link":"/crm-calendar",
+                "icon":"fas fa-calendar-alt",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Notes",
+                "link":"/crm-notes",
+                "icon":"fas fa-sticky-note",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Reports",
+                "link":"javascript:void(0);",
+                "icon":"fas fa-bullhorn",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Files",
+                "link":"javascript:void(0);",
+                "icon":"fas fa-folder-open",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"List Email",
+                "link":"javascript:void(0);",
+                "icon":"fas fa-mail-bulk",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Quotes",
+                "link":"javascript:void(0);",
+                "icon":"fas fa-quote-right",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "main_menu":"Live Chat",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-external-link-alt",
+        "haveChildren":false,
+        "children":null
+    }
+]

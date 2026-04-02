@@ -1,0 +1,106 @@
+<div class="w-100 user-chat mt-4 mt-sm-0" id="display_chat" style="display:none">
+    <div class="p-3 px-lg-4 user-chat-border">
+        <div class="row">
+            <div class="col-md-4 col-6">
+                <h5 class="font-size-15 mb-1 text-truncate" id="current_client_name">Agus Mardheka</h5>
+                <p class="text-muted text-truncate mb-0" style="margin-bottom: 2px !important;">General
+                    (#04971E1815)</p>
+            </div>
+            <div class="col-md-8 col-6">
+                <ul class="list-inline user-chat-nav text-right mb-0">
+                    <li class="list-inline-item d-inline-block d-sm-none">
+                        <div class="dropdown">
+                            <button class="btn nav-btn dropdown-toggle" type="button" data-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                <i class="mdi mdi-magnify"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right dropdown-menu-md">
+                                <form class="p-2">
+                                    <div class="search-box">
+                                        <div class="position-relative">
+                                            <input type="text" class="form-control rounded" placeholder="Search...">
+                                            <i class="mdi mdi-magnify search-icon"></i>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="d-none d-sm-inline-block">
+                        <div class="search-box mr-2">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" placeholder="Search...">
+                                <i class="mdi mdi-magnify search-icon"></i>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-inline-item">
+                        <div class="dropdown">
+                            <button class="btn nav-btn dropdown-toggle" type="button" data-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                <i class="mdi mdi-dots-horizontal"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right">
+                                <a class="dropdown-item" href="#">Profile</a>
+                                <a class="dropdown-item" href="#" onClick="closeChat()">Close Chat</a>
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="px-lg-2">
+        <div class="chat-conversation p-3">
+            <ul class="list-unstyled mb-0 pr-3" data-simplebar="init" style="max-height: 450px;">
+                <div class="simplebar-wrapper" style="margin: 0px -16px 0px 0px;">
+                    <div class="simplebar-height-auto-observer-wrapper">
+                        <div class="simplebar-height-auto-observer"></div>
+                    </div>
+                    <div class="simplebar-mask">
+                        <div class="simplebar-offset" style="right: 0px; bottom: 0px;">
+                            <div class="simplebar-content-wrapper" style="height: auto; overflow: hidden;">
+                                <div class="simplebar-content"
+                                    style="padding: 0px 16px 0px 0px;min-height:300px;overflow-y:auto"
+                                    id="private_chat">
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="simplebar-placeholder" style="width: auto; height: 222px;"></div>
+                </div>
+                <div class="simplebar-track simplebar-horizontal" style="visibility: hidden;">
+                    <div class="simplebar-scrollbar" style="transform: translate3d(0px, 0px, 0px); display: none;">
+                    </div>
+                </div>
+                <div class="simplebar-track simplebar-vertical" style="visibility: hidden;">
+                    <div class="simplebar-scrollbar" style="transform: translate3d(0px, 0px, 0px); display: none;">
+                    </div>
+                </div>
+            </ul>
+        </div>
+
+    </div>
+    <div class="px-lg-3">
+        <div class="p-3 chat-input-section">
+            <div class="row">
+                <div class="col">
+                    <div class="position-relative">
+                        <input type="text" class="form-control chat-input" id="input_chat"
+                            placeholder="Enter Message...">
+
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" onclick="sendChatButton()"
+                        class="btn btn-primary chat-send w-md waves-effect waves-light">
+                        <span class="d-none d-sm-inline-block mr-2">Send</span> <i class="mdi mdi-send"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

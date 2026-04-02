@@ -1,0 +1,14 @@
+
+#!/bin/sh
+cd /www/wwwroot/node-v2-client-chatvolution
+git stash --include-untracked
+git pull origin master
+yarn install
+echo yes | npm run eject
+cp /www/wwwroot/node-git-webhook/resources/webpack.config.js /www/wwwroot/node-v2-client-chatvolution/config/webpack.config.js
+cp /www/wwwroot/node-git-webhook/resources/.env /www/wwwroot/node-v2-client-chatvolution/.env
+yarn build
+cp /www/wwwroot/node-git-webhook/resources/index.html /www/wwwroot/node-v2-client-chatvolution/build/index.html
+# pm2 restart client-area-v2
+# git stash --include-untracked
+#pm2 serve build 10002 --name "client-area-v2" 

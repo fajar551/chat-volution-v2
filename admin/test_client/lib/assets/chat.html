@@ -1,0 +1,265 @@
+<div class="cevo-parent">
+    <div class="cevo-backdrop" style="display: none"></div>
+    <div class="cevo-chat-container">
+        <div class="cevo-content" style="display: none" id="cevo_init_chat">
+            <div class="cevo-header">
+                <h5 class="cevo-title">New message</h5>
+                <button
+                    type="button"
+                    class="close"
+                    aria-label="Close"
+                    onclick="QChat.closeChat()"
+                >
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="cevo-body">
+                <p>Please fill out the form below before you leave a message</p>
+                <div class="cevo-group">
+                    <input
+                        id="input_name"
+                        type="text"
+                        name="fullname"
+                        class="cevo-control"
+                        placeholder="Enter full name"
+                    />
+                </div>
+                <div class="cevo-group">
+                    <input
+                        id="input_email"
+                        type="email"
+                        name="email"
+                        class="cevo-control"
+                        placeholder="Enter email address"
+                    />
+                </div>
+                <div class="cevo-group">
+                    <select id="input_topic" class="cevo-control"></select>
+                </div>
+                <div class="cevo-group">
+                    <select id="input_department" class="cevo-control"></select>
+                </div>
+                <div class="cevo-group">
+                    <textarea
+                        id="input_msg"
+                        class="cevo-control"
+                        rows="3"
+                        style="height: 100px"
+                    ></textarea>
+                </div>
+                <div class="cevo-group">
+                    <a
+                        href="javascript:void(0)"
+                        onclick="QChat.handleClickStartChat()"
+                        class="cevo-btn"
+                        >Send message</a
+                    >
+                </div>
+                <div class="cevo-group-center cevo-title-social-media">
+                    <span class="rate-header cmb-1"> Atau </span>
+                </div>
+                <div class="cevo-group-center cevo-btn-social-media">
+                    <a
+                        href="https://api.whatsapp.com/send?phone=628112292430&text=Halo%20Qwords!
+                "
+                        target="_blank"
+                        class="cevo-btn send cevo-btn-secondary cmr-1"
+                        style="width: auto"
+                    >
+                        <img
+                            src="http://127.0.0.1:8080/lib/assets/whatsapp.svg"
+                            style="width: 18px"
+                        />
+                    </a>
+                    <a
+                        href="https://t.me/QwordsAdvisor"
+                        target="_blank"
+                        class="cevo-btn send cevo-btn-secondary cmr-1"
+                        style="width: auto"
+                    >
+                        <img
+                            src="http://127.0.0.1:8080/lib/assets/telegram.svg"
+                            style="width: 18px"
+                        />
+                    </a>
+                </div>
+            </div>
+            <div class="cevo-footer">
+                <p>Powered by <b>Qwords</b></p>
+            </div>
+        </div>
+
+        <div class="cevo-content" style="display: none" id="cevo_reply_chat">
+            <div class="cevo-header">
+                <button type="button" class="close" aria-label="Close">
+                    <img
+                        src="http://127.0.0.1:8080/lib/assets/arrow-left-s-line.png"
+                    />
+                </button>
+                <h5 class="cevo-title">General</h5>
+                <div class="dropdownCht" class="float-right-chat"></div>
+            </div>
+            <div class="cevo-body">
+                <div id="chat-box-list"></div>
+                <div class="p-3 chat-input-section">
+                    <div class="row" id="btnMsg">
+                        <div class="cevo-send">
+                            <!-- <button onclick="QChat.showEmoji()" type="button" class="cevo-emoji send btn-emoji"
+                            style="width: auto">
+                            <i class="fa fa-smile-o" aria-hidden="true"></i>
+                        </button> -->
+                            <input
+                                type="text"
+                                class="cevo-control chat-input"
+                                id="qchat-input"
+                                placeholder="Enter Message..."
+                                style="width: 100%"
+                            />
+                            <button
+                                onclick="QChat.showUploadFile()"
+                                class="cevo-btn send cmr-1"
+                                style="width: auto"
+                            >
+                                <i
+                                    class="fa fa-paperclip"
+                                    aria-hidden="true"
+                                ></i>
+                            </button>
+                            <button
+                                type="submit"
+                                class="cevo-btn send"
+                                onclick="QChat.handleClickSendChat()"
+                                style="width: auto"
+                            >
+                                <img
+                                    src="http://127.0.0.1:8080/lib/assets/send-plane-2-fill.png"
+                                    style="width: 14px"
+                                />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="cevo-footer">
+                <p>Powered by <b>Qwords</b></p>
+            </div>
+        </div>
+
+        <div class="cevo-content" style="display: none" id="cevo_no_agent">
+            <div class="cevo-header">
+                <button type="button" class="close" aria-label="Close">
+                    <img
+                        src="http://127.0.0.1:8080/lib/assets/arrow-left-s-line.png"
+                    />
+                </button>
+                <h5 class="cevo-title">Agent Is Offline</h5>
+            </div>
+            <div class="cevo-body">
+                <p>
+                    No agent online. Please contact this email
+                    <a href="mailto:admin@chatvolution.my.id"
+                        >admin@chatvolution.my.id
+                    </a>
+                </p>
+            </div>
+            <div class="cevo-footer">
+                <p>Powered by <b>Qwords</b></p>
+            </div>
+        </div>
+
+        <div id="circle" onclick="QChat.openNewChat()">
+            <img src="http://127.0.0.1:8080/lib/assets/chat-fill.png" />
+        </div>
+    </div>
+    <div id="my-modal-uploaded" class="modal-chat modal-qchat">
+        <div class="modal-chat-content">
+            <div class="modal-chat-header">
+                <span class="close" onclick="QChat.closeUploadFile()"
+                    >&times;</span
+                >
+                <h2>
+                    <i class="fa fa-paperclip" aria-hidden="true"></i> Upload
+                    File
+                </h2>
+            </div>
+            <div class="modal-chat-body">
+                <div class="row">
+                    <div class="cevo-send">
+                        <label for="fileupload" class="label-file">
+                            <span
+                                role="button"
+                                aria-controls="filename"
+                                tabindex="0"
+                            >
+                                <i
+                                    class="fa fa-folder-open"
+                                    aria-hidden="true"
+                                ></i>
+                                Browse
+                            </span>
+                        </label>
+                        <input
+                            type="file"
+                            id="fileupload"
+                            onchange="QChat.chooseFile()"
+                        />
+                        <input
+                            type="text"
+                            id="filename"
+                            autocomplete="off"
+                            readonly
+                            placeholder="no file uploaded"
+                        />
+                    </div>
+                    <div class="cevo-send cmt-1 cmb-1">
+                        <div
+                            class="alert-ready-cevo"
+                            style="display: none"
+                            id="alert-ready"
+                        >
+                            <div class="text-center-cevo">
+                                <i
+                                    class="fa fa-check-circle font-size-60-cevo"
+                                    aria-hidden="true"
+                                ></i>
+                                <h2 class="alert-message-cevo cmt-1">
+                                    Your file is ready
+                                </h2>
+                            </div>
+                        </div>
+                        <div class="alert-not-ready-cevo" id="alert-notready">
+                            <div class="text-center-cevo">
+                                <i
+                                    class="fa fa-file font-size-60-cevo"
+                                    aria-hidden="true"
+                                ></i>
+                                <h2 class="alert-message-cevo cmt-1">
+                                    No File Selected
+                                </h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cevo-send">
+                        <input
+                            type="text"
+                            id="messageUploadFIle"
+                            class="cevo-control chat-input cmt-1 cmb-1"
+                            placeholder="Enter Message..."
+                            style="width: 100%"
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-chat-footer">
+                <button
+                    class="modal-btn"
+                    style="width: auto"
+                    onclick="QChat.handleClickSendChatFile()"
+                >
+                    <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Send
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="snackbar"></div>
+</div>

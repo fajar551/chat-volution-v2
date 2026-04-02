@@ -1,0 +1,134 @@
+/* Reset csss */
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700;1,900&display=swap');
+*:where(:not(html, iframe, canvas, img, svg, video):not(svg *, symbol *)) {
+  all: unset;
+  display: revert;
+}
+
+/* Preferred box-sizing value */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Reapply the pointer cursor for anchor tags */
+a,
+button {
+  cursor: revert;
+}
+
+/* Remove list styles (bullets/numbers) */
+ol,
+ul,
+menu {
+  list-style: none;
+}
+
+/* For images to not be able to exceed their container */
+img {
+  max-width: 100%;
+}
+
+/* removes spacing between cells in tables */
+table {
+  border-collapse: collapse;
+}
+
+/* revert the 'white-space' property for textarea elements on Safari */
+textarea {
+  white-space: revert;
+}
+
+/* minimum style to allow to style meter element */
+meter {
+  -webkit-appearance: revert;
+  -moz-appearance: revert;
+  appearance: revert;
+}
+
+/* reset default text opacity of input placeholder */
+::-moz-placeholder {
+  color: unset;
+}
+:-ms-input-placeholder {
+  color: unset;
+}
+::placeholder {
+  color: unset;
+}
+
+/* fix the feature of 'hidden' attribute.
+   display:revert; revert to element instead of attribute */
+:where([hidden]) {
+  display: none;
+}
+
+/* revert for bug in Chromium browsers
+   - fix for the content editable attribute will work properly. */
+:where([contenteditable]:not([contenteditable='false'])) {
+  -moz-user-modify: read-write;
+  -webkit-user-modify: read-write;
+  overflow-wrap: break-word;
+  -webkit-line-break: after-white-space;
+}
+
+/* apply back the draggable feature - exist only in Chromium and Safari */
+:where([draggable='true']) {
+  -webkit-user-drag: element;
+}
+
+/* end reset css */
+
+:root {
+  --font-size: 'Source Sans Pro', sans-serif;
+}
+
+.sidebar {
+  background-color: #fff;
+  background-color: #36404a;
+  box-shadow: 0 2px 4px rgb(15 34 58 / 12%);
+  display: flex;
+  height: 100vh;
+  max-width: 140px;
+  min-height: 570px;
+  min-width: 140px;
+  z-index: 9;
+}
+
+.sidebar .navbar-brand-box {
+  text-align: center;
+}
+
+.sidebar .navbar-brand-box .navbar-brand {
+  line-height: 70px;
+}
+
+/* .sidebar {
+  width: 240px;
+  position: fixed !important;
+  min-height: 100vh;
+  background: #252b3b !important;
+  z-index: 2;
+  border-top-right-radius: 30px;
+  border-bottom-right-radius: 30px;
+  border: 1px solid #252b3b !important;
+}
+.sidebar h1,
+.sidebar h2,
+.sidebar h3,
+.sidebar h4,
+.sidebar h5,
+.sidebar h6,
+.sidebar p {
+  font-family: 'Source Sans Pro', sans-serif !important;
+}
+
+.vertical-ruler {
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 5px;
+}
+
+.sidebar .logo {
+  width: 45%; }
+*/

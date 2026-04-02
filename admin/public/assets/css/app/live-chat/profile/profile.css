@@ -1,0 +1,46 @@
+.avatar {
+    display: none !important;
+}
+
+.img-object-fit-cover {
+    object-fit: cover !important;
+}
+
+.p-image {
+    position: relative;
+    top: -30px;
+    right: -45px;
+    font-size: 25px;
+    color: #666666;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.p-image:hover {
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.upload-button {
+    font-size: 1.2em;
+}
+
+.upload-button:hover {
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    color: #999;
+}
+
+.list-group-flush .list-group-item:hover {
+    word-break: break-word;
+    word-wrap: break-word;
+    color: #020202;
+    cursor: pointer;
+    background: var(--color-soft-tangerin-50);
+}
+
+.card-custom-size {
+    min-height: 350px !important;
+}
+
+.custom-card-header {
+    min-height: 120px !important;
+}

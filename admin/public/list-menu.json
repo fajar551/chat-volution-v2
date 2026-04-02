@@ -1,0 +1,278 @@
+[
+    {
+        "menu_define":"home",
+        "main_menu": "Home",
+        "link":"/dashboard",
+        "icon":"fas fa-house-user",
+        "roles":"['1','2','3','4']",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "menu_define":"manages",
+        "main_menu": "Manages",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-user-cog",
+        "roles":"['1','2','3']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"roles",
+                "link":"/roles",
+                "roles":"['1']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Packages",
+                "link":"javascript:void(0);",
+                "roles":"['1']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Channel",
+                "link":"javascript:void(0);",
+                "roles":"['1']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Company",
+                "link":"javascript:void(0);",
+                "roles":"['1']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Staff",
+                "link":"/staff",
+                "roles":"['1','2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Agents",
+                "link":"/agents",
+                "roles":"['1','2','3']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Topics",
+                "link":"/topics",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Chat Labels",
+                "link":"/labels",
+                "roles":"['2','3']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Billing",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"billing",
+        "main_menu": "Billing",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-coins",
+        "roles":"['1']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"Transaction Report",
+                "link":"javascript:void(0);",
+                "roles":"['1']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"integrations",
+        "main_menu": "Integrations",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-icons",
+        "roles":"['2']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"Whatsapp For SME",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Whatsapp Bussiness API",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Facebook Messager",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Telegram",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Twitter DM",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"LINE",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"API Keys",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"quick_replies",
+        "main_menu":"Quick Replies",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-asterisk",
+        "roles":"['2','3','4']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"General Quick Reply",
+                "link":"/general-quick-replies",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Personal Quick Reply",
+                "link":"/personal-quick-replies",
+                "roles":"['2','3','4']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"operational",
+        "main_menu":"Operational",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-toolbox",
+        "roles":"['2','3']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"Broadcast Message",
+                "link":"javascript:void(0);",
+                "roles":"['2','3']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Contact",
+                "link":"javascript:void(0);",
+                "roles":"['2','3']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"setup",
+        "main_menu":"Setup",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-cogs",
+        "roles":"['2']",
+        "haveChildren":true,
+        "children":[
+            {
+                "menu":"Office Hours",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Welcome Message",
+                "link":"/welcome-message",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Away Message",
+                "link":"/away-message",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Closing Message",
+                "link":"/closing-message",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"Inbox Setting",
+                "link":"/inbox-setting",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            },
+            {
+                "menu":"User Rating",
+                "link":"javascript:void(0);",
+                "roles":"['2']",
+                "haveChildren":false,
+                "children":null
+            }
+        ]
+    },
+    {
+        "menu_define":"inbox",
+        "main_menu":"Inbox",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-external-link-alt",
+        "roles":"['2','3','4']",
+        "haveChildren":false,
+        "children":null
+    },
+    {
+        "menu_define":"crm",
+        "main_menu":"CRM",
+        "link":"javascript:void(0);",
+        "icon":"fas fa-external-link-alt",
+        "roles":"['2']",
+        "haveChildren":false,
+        "children":null
+    }
+]

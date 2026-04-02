@@ -1,0 +1,75 @@
+<div class="cevo-backdrop" style="display: none;"></div>
+<div class="cevo-chat-container">
+
+    <div class="cevo-content" style="display: none;" id="cevo_init_chat">
+        <div class="cevo-header">
+            <h5 class="cevo-title">New message</h5>
+            <button type="button" class="close" aria-label="Close" onclick="QChat.closeChat()">
+                <span aria-hidden="true">×</span>
+            </button>
+        </div>
+        <div class="cevo-body">
+            <p>Please fill out the form below before you leave a message</p>
+            <div class="cevo-group">
+                <input id="input_name" type="text" name="fullname" class="cevo-control" placeholder="Enter full name">
+            </div>
+            <div class="cevo-group">
+                <input id="input_email" type="email" name="email" class="cevo-control"
+                    placeholder="Enter email address">
+            </div>
+            <div class="cevo-group">
+                <select id="input_topic" class="cevo-control">
+
+                </select>
+            </div>
+            <div class="cevo-group">
+                <select id="input_department" class="cevo-control">
+
+                </select>
+            </div>
+            <div class="cevo-group">
+                <textarea id="input_msg" class="cevo-control" rows="3" style="height:100px"></textarea>
+            </div>
+            <div class="cevo-group">
+                <a href="javascript:void(0)" onclick="QChat.handleClickStartChat()" class="cevo-btn">Send
+                    message</a>
+            </div>
+        </div>
+        <div class="cevo-footer">
+            <p>Powered by <b>Qwords</b></p>
+        </div>
+    </div>
+
+    <div class="cevo-content" style="display: none;" id="cevo_reply_chat">
+        <div class="cevo-header">
+            <button type="button" class="close" aria-label="Close">
+                <img src="lib/assets/arrow-left-s-line.png">
+            </button>
+            <h5 class="cevo-title"> General (#453SA)</h5>
+        </div>
+        <div class="cevo-body">
+            <div id="chat-box-list">
+
+            </div>
+            <div class="p-3 chat-input-section">
+                <div class="row">
+                    <div class="cevo-send">
+                        <input type="text" class="cevo-control chat-input" id="qchat-input"
+                            placeholder="Enter Message..." style="width: 100%;">
+                        <button type="submit" class="cevo-btn send" onclick="QChat.handleClickSendChat()"
+                            style="width:auto"><img src="lib/assets/send-plane-2-fill.png" style="width:14px"></button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="cevo-footer">
+            <p>Powered by <b>Qwords</b></p>
+        </div>
+    </div>
+
+
+    <div id="circle" onclick="QChat.openNewChat()">
+        <img src="lib/assets/chat-fill.png" />
+    </div>
+</div>

@@ -1,0 +1,58 @@
+.datepicker-top-left:before,
+.datepicker-top-right:before {
+    border-bottom-color: var(--color-soft-tangerin-500) !important;
+}
+
+.datepicker-top-left,
+.datepicker-top-right {
+    border-top-color: var(--color-soft-tangerin-500) !important;
+}
+
+.datepicker-panel > ul > li:hover {
+    background-color: var(--color-soft-tangerin-500) !important;
+    color: #fff !important;
+}
+
+.datepicker-panel > ul > li.picked,
+.datepicker-panel > ul > li.picked:hover {
+    background-color: var(--color-soft-tangerin-500) !important;
+    color: #fff !important;
+}
+
+.datepicker-panel > ul > li.highlighted {
+    background-color: var(--color-soft-tangerin-50) !important;
+    color: var(--color-soft-tangerin-100) !important;
+}
+
+.btn-refresh {
+    display: inline-block !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    background-color: var(--color-soft-tangerin-500) !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    border: 1px solid transparent !important;
+    padding: 0.47rem 0.75rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    border-radius: 0.25rem !important;
+    -webkit-transition: color 0.15s ease-in-out,
+        background-color 0.15s ease-in-out, border-color 0.15s ease-in-out,
+        -webkit-box-shadow 0.15s ease-in-out !important;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out, -webkit-box-shadow 0.15s ease-in-out !important;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out,
+        -webkit-box-shadow 0.15s ease-in-out !important;
+}
+
+.btn-refresh:hover {
+    color: #fff !important;
+    background-color: var(--color-soft-tangerin-700) !important;
+}

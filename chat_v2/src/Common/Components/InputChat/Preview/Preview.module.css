@@ -1,0 +1,30 @@
+/* dark mode */
+.formContenteditable[contentEditable='true'] {
+  max-height: 130px !important;
+  overflow: auto;
+  transition: height 100ms ease;
+  max-width: 460px;
+  min-width: 350px;
+}
+
+.formContenteditable[contentEditable='true']:empty:not(:focus):before {
+  content: attr(placeholder);
+}
+
+.formContenteditable[contentEditable='true']:empty:before {
+  content: attr(placeholder);
+}
+
+.formContenteditable[contentEditable='true']::-webkit-scrollbar {
+  width: 10px;
+  background-color: #36404a !important;
+}
+
+.formContenteditable[contentEditable='true']::-webkit-scrollbar-track {
+  background-color: #36404a !important;
+}
+
+.formContenteditable[contentEditable='true']::-webkit-scrollbar-thumb {
+  background-color: #262e35 !important;
+  border-radius: 5px;
+}

@@ -1,0 +1,43 @@
+stages:
+  - deploy
+
+deploy_staging:
+  stage: deploy
+  environment: staging
+  script: 
+    - hostname
+    - cd /www/wwwroot/staging.chatvolution.com/livechat
+    - git checkout dev
+    - git pull origin dev
+  tags:
+    - ssh_staging
+  only: 
+    - staging
+
+deploy_prod:
+  stage: deploy
+  environment: production
+  script: 
+    - hostname
+    - cd /home/chatvolutionmy/live-chat
+    - sudo -u chatvolutionmy git checkout master
+    - sudo -u chatvolutionmy git pull origin master
+    - sudo -u chatvolutionmy /usr/bin/cp -r public/js/ /home/chatvolutionmy/public_html/
+    - sudo -u chatvolutionmy /usr/bin/cp -r public/css/ /home/chatvolutionmy/public_html/
+  tags:
+    - ssh_cv
+  only: 
+    - master
+
+deploy_prod_v2:
+  stage: deploy
+  environment: production
+  script: 
+    - hostname
+    - cd /home/chatvolutionmy/chatvolutionV2/admin
+    - sudo -u chatvolutionmy git checkout dev
+    - sudo -u chatvolutionmy git pull origin dev
+  tags:
+    - ssh_cv
+  only: 
+    - dev

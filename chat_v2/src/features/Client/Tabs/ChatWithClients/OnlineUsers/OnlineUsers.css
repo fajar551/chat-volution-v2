@@ -1,0 +1,15 @@
+.alice-carousel__prev-btn,
+.alice-carousel__next-btn {
+  padding: 0;
+}
+
+.alice-carousel__prev-btn-item,
+.alice-carousel__next-btn-item {
+  padding: 0 5px !important;
+  color: #ff9721 !important;
+}
+
+.alice-carousel__prev-btn-item:hover,
+.alice-carousel__next-btn-item:hover {
+  color: #ff9721 !important;
+}

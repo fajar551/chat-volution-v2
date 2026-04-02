@@ -1,0 +1,136 @@
+.input-message[contenteditable='true'] {
+  position: relative !important;
+  max-width: 260px;
+  width: 100% !important;
+  background: #fefefe !important;
+  border-radius: 0 0 0 15px;
+  border-color: transparent;
+  padding: 0.8rem;
+  font-size: 14px !important;
+  max-height: 150px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: #4a5568 !important;
+  scroll-behavior: smooth;
+}
+
+.input-message[contenteditable='true']:focus {
+  outline: none;
+}
+
+.input-message[contenteditable='true']:empty:before {
+  content: attr(placeholder);
+  display: block;
+  color: #b7b7b7 !important;
+}
+
+.input-message[contenteditable='true']::-webkit-scrollbar {
+  width: 4px;
+  cursor: pointer !important;
+}
+
+.input-message[contenteditable='true']::-webkit-scrollbar-track {
+  width: 1px;
+  cursor: pointer !important;
+}
+
+.input-message[contenteditable='true']::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 24px;
+  cursor: pointer !important;
+}
+
+@media only screen and (min-width: 319px) {
+  .input-message[contenteditable='true'] {
+    max-width: 180px;
+  }
+}
+
+@media only screen and (min-width: 370px) {
+  .input-message[contenteditable='true'] {
+    max-width: 230px;
+  }
+}
+@media only screen and (min-width: 400px) {
+  .input-message[contenteditable='true'] {
+    max-width: 260px;
+  }
+}
+
+@media only screen and (min-width: 424px) {
+  .input-message[contenteditable='true'] {
+    max-width: 280px;
+  }
+}
+
+@media only screen and (min-width: 450px) {
+  .input-message[contenteditable='true'] {
+    max-width: 300px;
+  }
+}
+
+@media only screen and (min-width: 490px) {
+  .input-message[contenteditable='true'] {
+    max-width: 350px;
+  }
+}
+
+@media only screen and (min-width: 520px) {
+  .input-message[contenteditable='true'] {
+    max-width: 380px;
+  }
+}
+
+@media only screen and (min-width: 580px) {
+  .input-message[contenteditable='true'] {
+    max-width: 420px;
+  }
+}
+
+@media only screen and (min-width: 650px) {
+  .input-message[contenteditable='true'] {
+    max-width: 550px;
+  }
+}
+
+@media only screen and (min-width: 750px) {
+  .input-message[contenteditable='true'] {
+    max-width: 600px;
+  }
+}
+
+@media only screen and (min-width: 850px) {
+  .input-message[contenteditable='true'] {
+    max-width: 700px;
+  }
+}
+
+@media only screen and (min-width: 900px) {
+  .input-message[contenteditable='true'] {
+    max-width: 750px;
+  }
+}
+
+@media only screen and (min-width: 992px) {
+  .input-message[contenteditable='true'] {
+    max-width: 850px;
+  }
+}
+
+@media only screen and (min-width: 1020px) {
+  .input-message[contenteditable='true'] {
+    max-width: 200px;
+  }
+}
+
+@media only screen and (min-width: 1250px) {
+  .input-message[contenteditable='true'] {
+    max-width: 170px;
+  }
+}
+
+@media only screen and (min-width: 1800px) {
+  .input-message[contenteditable='true'] {
+    max-width: 180px;
+  }
+}

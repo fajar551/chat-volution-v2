@@ -1,0 +1,37 @@
+.emoji-chat-dark {
+  --category-icon-size: 24px;
+  --border-radius: 10px 10px 0px 0px;
+  --color-border-over: rgba(0, 0, 0, 0.5);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --font-family: 'Public Sans', cursive;
+  --font-size: 20px;
+  --rgb-accent: 255, 255, 255;
+  --rgb-background: 48, 56, 65;
+  --rgb-color: 166, 176, 207;
+  --rgb-input: 166, 176, 207;
+
+  max-height: calc(100vh - 50vh);
+  position: absolute;
+  bottom: 10%;
+  right: 0;
+  left: 1rem;
+}
+
+.emoji-chat-light {
+  --category-icon-size: 24px;
+  --border-radius: 10px 10px 0px 0px;
+  --color-border-over: rgba(0, 0, 0, 0.5);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --font-family: 'Public Sans', cursive;
+  --font-size: 20px;
+  --rgb-accent: 73, 80, 87;
+  --rgb-background: 247, 247, 255;
+  --rgb-color: 122, 127, 154;
+  --rgb-input: 122, 127, 154;
+
+  max-height: calc(100vh - 50vh);
+  position: absolute;
+  bottom: 10%;
+  right: 0;
+  left: 1rem;
+}

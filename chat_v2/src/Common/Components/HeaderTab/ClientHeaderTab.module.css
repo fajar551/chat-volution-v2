@@ -1,0 +1,15 @@
+.search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  height: 1em;
+  width: 1em;
+  border-radius: 50em;
+  background: url(https://pro.fontawesome.com/releases/v5.10.0/svgs/solid/times.svg)
+    no-repeat 50% 50%;
+  background-size: contain;
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.search:focus::-webkit-search-cancel-button {
+  pointer-events: all;
+}

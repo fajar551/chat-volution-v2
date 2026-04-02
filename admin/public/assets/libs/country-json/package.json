@@ -1,0 +1,57 @@
+{
+  "_from": "country-json",
+  "_id": "country-json@1.1.2",
+  "_inBundle": false,
+  "_integrity": "sha512-LLeN2f0/VuTUNBO3VyccJ319PJMNCf+tSbvQnmHkTZpG4yP9WMj82Y9Uj4m9+SVr1lb/jc7XL+fX12Cdr63XjQ==",
+  "_location": "/country-json",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "country-json",
+    "name": "country-json",
+    "escapedName": "country-json",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/country-json/-/country-json-1.1.2.tgz",
+  "_shasum": "ccf49ba614c6af8b42726b27493ea070d8f82dd3",
+  "_spec": "country-json",
+  "_where": "C:\\kerjaan\\Livechat",
+  "author": {
+    "name": "Samson Daniel"
+  },
+  "bugs": {
+    "url": "https://github.com/samayo/country-json/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "A simple but useful data of the world (by country) each in JSON format.",
+  "devDependencies": {
+    "gulp": "3.9.1",
+    "gulp-jsonlint": "1.1.2",
+    "gulp-util": "3.0.8"
+  },
+  "homepage": "https://github.com/samayo/country-json#readme",
+  "keywords": [
+    "json",
+    "country",
+    "data"
+  ],
+  "license": "MIT",
+  "main": "gulpfile.js",
+  "name": "country-json",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samayo/country-json.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "version": "1.1.2"
+}

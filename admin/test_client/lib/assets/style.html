@@ -1,0 +1,913 @@
+<style>
+    @import url(https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css);
+    @import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+    :root {
+        --modal-duration-cevo: 1s;
+        --color-primary-cevo: #2c6af4;
+        --color-primary-hover-cevo: #104dd1;
+        --color-secondary-cevo: #e7e7e7;
+        --color-danger-cevo: #dc3545;
+        --color-danger-hover-cevo: #b61f2e;
+        --color-light-cevo: #fff;
+        --color-box-shadow-primary-cevo: rgba(15, 45, 179, 0.4);
+        --color-dark-cevo: #020202;
+        --color-dark-secondary-cevo: #343a40;
+        --font-family-cevo: "Nunito", sans-serif;
+    }
+
+    .cevo-parent .cevo-chat-container {
+        /* position: absolute; */
+        position: fixed;
+        bottom: 15px;
+        right: 70px;
+        font-family: var(--font-family-cevo);
+        /* z-index: 0; */
+        z-index: 150 !important;
+    }
+
+    /* modal */
+    .cevo-parent .modal-chat {
+        display: none;
+        position: fixed;
+        z-index: 300 !important;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+        font-family: var(--font-family-cevo);
+    }
+
+    .cevo-parent .modal-chat-content {
+        margin: 10% auto;
+        width: 60%;
+        box-shadow: 0 5px 8px 0 rgba(0, 0, 0, 0.2),
+            0 7px 20px 0 rgba(0, 0, 0, 0.17);
+        animation-name: modalopencevo;
+        animation-duration: var(--modal-duration);
+    }
+
+    @media screen and (min-width: 1040px) {
+        .cevo-parent .modal-chat-content {
+            width: 35%;
+        }
+    }
+
+    @media screen and (max-width: 480px) {
+        .cevo-parent .modal-chat-content {
+            width: 100%;
+        }
+    }
+
+    .cevo-parent .modal-chat-header h2,
+    .cevo-parent .modal-chat-footer h3 {
+        margin: 0;
+        font-family: var(--font-family-cevo);
+    }
+
+    .cevo-parent .modal-chat-header {
+        font-family: var(--font-family-cevo);
+        background: var(--color-light-cevo);
+        padding: 15px;
+        color: var(--color-primary-cevo);
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+        border-bottom: 1px solid var(--color-secondary-cevo);
+    }
+
+    .cevo-parent .modal-chat-body {
+        padding: 10px 20px;
+        background: var(--color-light-cevo);
+    }
+
+    .cevo-parent .modal-chat-footer {
+        background: var(--color-secondary-cevo);
+        padding: 10px;
+        color: var(--color-light-cevo);
+        text-align: right;
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+    }
+
+    .cevo-parent .close {
+        float: right;
+        font-size: 30px;
+        color: var(--color-danger-cevo);
+    }
+
+    .cevo-parent .close:hover,
+    .cevo-parent .close:focus {
+        color: var(--color-danger-hover-cevo);
+        text-decoration: none;
+        cursor: pointer;
+        transform: translate(2, 2);
+    }
+
+    .cevo-parent .modal-btn {
+        background-color: var(--color-primary-cevo);
+        color: var(--color-light-cevo);
+        width: 100%;
+        padding: 0.47rem 0.75rem;
+        box-sizing: border-box;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        font-weight: 400;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .cevo-parent .modal-btn:hover {
+        background-color: var(--color-primary-hover-cevo);
+        box-shadow: 0px 10px 10px var(--color-box-shadow-primary-cevo);
+        color: var(--color-light-cevo);
+        transform: translate(2, 2);
+        cursor: pointer;
+    }
+
+    .cevo-parent .modal-btn {
+        width: auto;
+        border: none;
+    }
+
+    @keyframes modalopencevo {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .cevo-parent #circle {
+        width: 55px;
+        height: 55px;
+        background: var(--color-primary-cevo);
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        float: right;
+        margin-top: 1em;
+    }
+
+    .cevo-parent #circle img {
+        width: 70%;
+        height: 70%;
+    }
+
+    .cevo-parent .cevo-content {
+        border: 1px solid rgb(241, 245, 247);
+        max-width: 341px;
+        border-radius: 0.4rem;
+        color: var(--color-dark-secondary-cevo);
+        font-family: Inter, sans-serif;
+        position: relative;
+        background: var(--color-light-cevo);
+    }
+
+    .cevo-parent .cevo-content>.cevo-header {
+        /* padding: 1rem; */
+        padding: 5px;
+        border-bottom: 1px solid #eff2f7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .cevo-parent .cevo-body {
+        padding: 1rem;
+    }
+
+    .cevo-parent .cevo-body p {
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1.5;
+        margin: 0;
+        margin-bottom: 1rem;
+    }
+
+    .cevo-parent .cevo-title {
+        font-weight: 500;
+        line-height: 1.5;
+        font-size: 1.125rem;
+        margin: 0;
+    }
+
+    .cevo-parent .cevo-control {
+        display: block;
+        width: 100%;
+        height: calc(1.5em + 0.94rem + 2px);
+        padding: 0;
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--color-dark-secondary-cevo);
+        background-color: var(--color-light-cevo);
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        -webkit-transition: border-color 0.15s ease-in-out,
+            -webkit-box-shadow 0.15s ease-in-out;
+        transition: border-color 0.15s ease-in-out,
+            -webkit-box-shadow 0.15s ease-in-out;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out,
+            -webkit-box-shadow 0.15s ease-in-out;
+        padding-left: 1em;
+        box-sizing: border-box;
+    }
+
+    .cevo-parent .cevo-content>.cevo-footer {
+        border-top: 1px solid #eff2f7;
+        padding: 1rem;
+    }
+
+    .cevo-parent .cevo-group {
+        margin-bottom: 1rem;
+    }
+
+    .cevo-parent .cevo-group-center {
+        display: flex;
+        justify-content: center;
+    }
+
+    .cevo-parent .cevo-btn {
+        background-color: var(--color-primary-cevo);
+        color: var(--color-light-cevo);
+        width: 100%;
+        display: block;
+        padding: 0.47rem 0.75rem;
+        box-sizing: border-box;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        font-weight: 400;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .cevo-parent .cevo-btn:hover {
+        background-color: #104dd1 !important;
+        color: var(--color-light-cevo);
+        transform: translate(2, 2);
+        cursor: pointer;
+    }
+
+
+    .cevo-parent .cevo-btn-secondary {
+        background-color: var(--color-secondary-cevo) !important;
+        color: var(--color-light-cevo) !important;
+        width: 100%;
+        display: block;
+        padding: 0.47rem 0.75rem;
+        box-sizing: border-box;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        border-color: none;
+        font-weight: 400;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        cursor: pointer;
+    }
+
+    .cevo-parent .cevo-btn-secondary:hover {
+        background-color: var(--color-secondary-cevo) !important;
+        color: var(--color-light-cevo) !important;
+        transform: translate(2, 2);
+        cursor: pointer;
+    }
+
+    .cevo-parent .cevo-btn-tangerin {
+        background-color: #ff9721 !important;
+        color: var(--color-light-cevo) !important;
+        width: 100%;
+        display: block;
+        padding: 0.47rem 0.75rem;
+        box-sizing: border-box;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        border-color: none;
+        font-weight: 400;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        cursor: pointer;
+    }
+
+    .cevo-parent .cevo-btn-tangerin:hover {
+        background-color: #f38200 !important;
+        color: var(--color-light-cevo) !important;
+        transform: translate(2, 2);
+        cursor: pointer;
+    }
+
+    .cevo-parent .cevo-emoji {
+        margin-right: -4px;
+        background: rgb(239, 242, 247);
+        color: var(--color-dark-secondary-cevo);
+        border: none;
+        font-family: var(--font-family-cevo);
+        padding: 5px;
+        text-align: center;
+        text-anchor: none;
+        border-radius: 5px 0px 0px 5px;
+    }
+
+    .cevo-parent .cevo-emoji:hover {
+        transform: translate(2, 2);
+        cursor: pointer;
+    }
+
+    .cevo-parent .cevo-btn.send,
+    .cevo-parent .cevo-emoji.send {
+        width: auto;
+        border: none;
+    }
+
+    .cevo-parent .cevo-footer>p {
+        margin: 0;
+        text-align: right;
+        font-family: Nunito, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--color-dark-secondary-cevo);
+    }
+
+    .cevo-parent .cevo-header .close {
+        font-size: 1.35rem;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--color-dark-cevo);
+        text-shadow: 0 1px 0 var(--color-light-cevo);
+        opacity: 0.5;
+        background: var(--color-light-cevo);
+        border: none;
+    }
+
+    .cevo-parent .cevo-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        width: 100vw;
+        height: 100vh;
+        background-color: var(--color-dark-cevo);
+        opacity: 0.5;
+    }
+
+    .cevo-parent .cevo-control.chat-input {
+        margin-right: 1em;
+        background: rgb(239, 242, 247);
+        color: var(--color-dark-secondary-cevo);
+        border: none;
+        font-family: var(--font-family-cevo);
+    }
+
+    .cevo-parent .cevo-send {
+        display: flex;
+        position: relative;
+    }
+
+    .cevo-parent #chat-box-list,
+    .cevo-parent .chat-box-list {
+        height: 200px;
+        /* padding-right: 1em; */
+        overflow-y: auto;
+        max-width: 100%;
+    }
+
+    .cevo-parent .box-chat {
+        margin-bottom: 1em;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cevo-parent .box-chat .name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.5;
+        font-family: Nunito, sans-serif;
+        color: var(--color-dark-secondary-cevo);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .cevo-parent .chat-body {
+        padding: 1em;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1.5;
+        font-family: Nunito, sans-serif;
+    }
+
+    .cevo-parent .box-chat.me .container {
+        display: inline-block;
+    }
+
+    .cevo-parent .box-chat.me .chat-body {
+        color: var(--color-dark-secondary-cevo);
+        background: #eff2f7;
+    }
+
+    .cevo-parent .box-chat.other .chat-body {
+        background: #f7863b;
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent .box-chat .time {
+        margin-top: 0.5em;
+        color: var(--color-dark-secondary-cevo);
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 18px;
+    }
+
+    .cevo-parent .box-chat .time img {
+        width: 12px;
+    }
+
+    .cevo-parent .box-chat.other .time {
+        text-align: right;
+    }
+
+    .box-chat.me .time {
+        text-align: left;
+    }
+
+    .cevo-parent .box-chat.me {
+        text-align: right;
+    }
+
+    .cevo-parent .chat-input-section {
+        margin-top: 1em;
+    }
+
+    .cevo-parent .chat-body .condition-file {
+        object-fit: cover;
+        width: 100%;
+        height: 25%;
+        --icon-margin: 0.75rem;
+        /* height: 58px; */
+    }
+
+    .cevo-parent .chat-body .condition-file .url-preview {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+    }
+
+    .cevo-parent .chat-body .condition-file .url-preview img {
+        max-width: 25%;
+        margin-bottom: 0;
+    }
+
+    .cevo-parent .chat-body .condition-file .url-preview .file-name {
+        line-height: 1.4;
+        margin-top: 1px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--color-light-cevo);
+        width: 50%;
+    }
+
+    .cevo-parent .chat-body .condition-file .url-preview:hover .file-name {
+        color: rgb(248, 248, 248);
+    }
+
+    .cevo-parent .chat-body .message {
+        width: 100%;
+        word-wrap: break-word;
+    }
+
+    .cevo-parent .box-chat.me .chat-body .message {
+        text-align: left;
+    }
+
+    .cevo-parent .box-chat.me .chat-body .condition-file .url-preview .file-name {
+        color: var(--color-dark-secondary-cevo);
+        text-align: left !important;
+    }
+
+    .cevo-parent .box-chat.me .chat-body .condition-file .url-preview:hover .file-name {
+        color: var(--color-dark-secondary-cevo);
+    }
+
+    .cevo-parent .cevo-lrate {
+        display: flex;
+        justify-content: center;
+    }
+
+    /* star */
+    .cevo-parent .rate-header {
+        text-align: center !important;
+    }
+
+    .cevo-parent .stars {
+        direction: rtl;
+        margin: 0 auto;
+        align-content: center;
+        float: none;
+        align-items: center;
+        margin: 0 25px 0 25px;
+    }
+
+    .cevo-parent .stars label {
+        cursor: pointer;
+        padding: 10px;
+        margin: 0;
+    }
+
+    .cevo-parent .stars .fa {
+        color: #f1c40f;
+        text-shadow: 0 0 5px #f1c40f;
+        font-size: 30px;
+    }
+
+    .cevo-parent .stars input:not(:checked)~label:not(:checked)>.fa-star {
+        display: none;
+    }
+
+    .cevo-parent .stars label:hover>.fa-star-o,
+    .cevo-parent .stars label:hover~label>.fa-star-o,
+    .cevo-parent .stars input:checked~label>.fa-star-o {
+        display: none;
+    }
+
+    .cevo-parent .stars label:hover>.fa-star,
+    .cevo-parent .stars label:hover~label>.fa-star,
+    .cevo-parent .stars input:checked~label>.fa-star {
+        display: inline-block !important;
+    }
+
+    /* size class */
+    .cevo-parent .float-right-chat {
+        float: right;
+    }
+
+    /* background color */
+    .cevo-parent .btn-cevo-danger {
+        background-color: var(--color-danger-cevo);
+    }
+
+    /* text class */
+    .cevo-parent .text-chat-white {
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent .text-chat-dark {
+        color: var(--color-dark-cevo) !important;
+    }
+
+    .cevo-parent .text-chat-danger {
+        color: var(--color-danger-cevo) !important;
+    }
+
+    .cevo-parent .text-bold {
+        font-weight: bold;
+    }
+
+    .cevo-parent .text-center-cevo {
+        text-align: center;
+    }
+
+    .cevo-parent .font-size-60-cevo {
+        font-size: 60px;
+    }
+
+    /* margin */
+    .cevo-parent .cmt-1 {
+        margin-top: 0.5rem;
+    }
+
+    .cevo-parent .cmt-2 {
+        margin-top: 1rem;
+    }
+
+    .cevo-parent .cmt-3 {
+        margin-top: 1.5rem;
+    }
+
+    .cevo-parent .cml-1 {
+        margin-left: 0.5rem;
+    }
+
+    .cevo-parent .cml-2 {
+        margin-left: 1rem;
+    }
+
+    .cevo-parent .cml-3 {
+        margin-left: 1.5rem;
+    }
+
+    .cevo-parent .cmr-1 {
+        margin-right: 0.5rem;
+    }
+
+    .cevo-parent .cmr-2 {
+        margin-right: 1rem;
+    }
+
+    .cevo-parent .cmr-3 {
+        margin-right: 1.5rem;
+    }
+
+    .cevo-parent .cmb-1 {
+        margin-bottom: 0.5rem;
+    }
+
+    .cevo-parent .cmb-2 {
+        margin-bottom: 1rem;
+    }
+
+    .cevo-parent .cmb-3 {
+        margin-bottom: 1.5rem;
+    }
+
+    /* float */
+    .cevo-parent .cfr {
+        float: right;
+    }
+
+    .cevo-parent .cfl {
+        float: left;
+    }
+
+    /* dropdown */
+    .cevo-parent .dropbtnCht {
+        background-color: transparent;
+        color: var(--color-light-cevo);
+        font-size: 16px;
+        padding: 10px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .cevo-parent .dropdownCht {
+        position: relative;
+        display: inline-block;
+    }
+
+    .cevo-parent .dropdownCht-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: var(--color-light-cevo);
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+    }
+
+    .cevo-parent .dropdownCht-content a {
+        color: var(--color-dark-cevo);
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+    }
+
+    .cevo-parent .dropdownCht-content a:hover {
+        background-color: #f1f1f1;
+    }
+
+    .cevo-parent .dropdownCht-content.active {
+        display: block;
+    }
+
+    .cevo-parent .dropdownCht:hover .dropbtnCht {
+        background-color: transparent;
+    }
+
+    .cevo-parent .show {
+        display: block;
+    }
+
+    /* upload file */
+    .cevo-parent .label-file {
+        position: absolute;
+        right: 15px;
+        top: 0px;
+    }
+
+    .cevo-parent #fileupload {
+        display: none;
+    }
+
+    .cevo-parent form {
+        display: table-row;
+        width: 40rem;
+    }
+
+    .cevo-parent span[role="button"] {
+        display: table-cell;
+        font-family: var(--font-family-cevo);
+        font-size: 1rem;
+        padding: 8px 8px;
+        border-bottom-right-radius: 5px;
+        border-top-right-radius: 5px;
+        color: var(--color-light-cevo);
+        cursor: pointer;
+        background-color: var(--color-primary-cevo);
+        outline: none;
+    }
+
+    .cevo-parent span[role="button"]:hover,
+    .cevo-parent span[role="button"]:focus {
+        background-color: var(--color-primary-hover-cevo);
+    }
+
+    .cevo-parent .hide {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+    }
+
+    .cevo-parent input[type="text"]#filename {
+        display: table-cell;
+        margin-left: -1px;
+        width: 100%;
+        margin-right: 1em;
+        font-family: var(--font-family-cevo);
+        font-size: 1rem;
+        padding: 8px 8px;
+        border-top-right-radius: 5px;
+        border-bottom-right-radius: 5px;
+        color: var(--color-primary-cevo);
+        background-color: #e9f1fe;
+        border: none;
+        border-bottom: 1px solid var(--color-primary-cevo);
+    }
+
+    .cevo-parent input[type="text"]#filename:focus {
+        box-shadow: none;
+        outline: none;
+    }
+
+    .cevo-parent input[type="text"]#filename::placeholder {
+        color: var(--color-primary-cevo);
+    }
+
+    .cevo-parent input[type="text"]#filename:focus {
+        box-shadow: 0 0 5px var(--color-dark-secondary-cevo);
+        outline: 2px solid transparent;
+    }
+
+    .cevo-parent input[type="text"].chat-input:focus {
+        box-shadow: none;
+        outline: none;
+    }
+
+    .cevo-parent .alert-ready-cevo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 140px;
+        margin-right: 1em;
+        background: #cbf0d3;
+        border-radius: 8px;
+    }
+
+    .cevo-parent .alert-ready-cevo h1,
+    .cevo-parent .alert-ready-cevo h2,
+    .cevo-parent .alert-ready-cevo h3,
+    .cevo-parent .alert-ready-cevo h4,
+    .cevo-parent .alert-ready-cevo h5,
+    .cevo-parent .alert-ready-cevo i {
+        color: #46a25b;
+    }
+
+    .cevo-parent .alert-message-cevo {
+        margin: 0;
+    }
+
+    .cevo-parent .alert-not-ready-cevo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 140px;
+        margin-right: 1em;
+        background: #eaeaea;
+        border-radius: 8px;
+    }
+
+    .cevo-parent .alert-not-ready-cevo h1,
+    .cevo-parent .alert-not-ready-cevo h2,
+    .cevo-parent .alert-not-ready-cevo h3,
+    .cevo-parent .alert-not-ready-cevo h4,
+    .cevo-parent .alert-not-ready-cevo h5,
+    .cevo-parent .alert-not-ready-cevo i {
+        color: #a7a7a7;
+    }
+
+    .cevo-parent .alert-message-cevo {
+        margin: 0;
+    }
+
+    /* snackbar */
+    .cevo-parent #snackbar {
+        visibility: hidden;
+        min-width: 250px;
+        margin-left: -125px;
+        text-align: center;
+        border-radius: 2px;
+        padding: 16px;
+        position: fixed;
+        z-index: 1;
+        left: 50%;
+        bottom: 30px;
+        font-size: 17px;
+    }
+
+    .cevo-parent #snackbar.success {
+        background-color: #1cbb8c;
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent #snackbar.danger {
+        background-color: var(--color-danger-cevo);
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent #snackbar.info {
+        background-color: var(--color-primary-cevo);
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent #snackbar.warning {
+        background-color: #fcb92c;
+        color: var(--color-light-cevo);
+    }
+
+    .cevo-parent #snackbar.show {
+        visibility: visible;
+        -webkit-animation: fadeincevo 0.5s, fadeoutcevo 0.5s 2.5s;
+        animation: fadeincevo 0.5s, fadeoutcevo 0.5s 2.5s;
+    }
+
+    @-webkit-keyframes fadeincevo {
+        from {
+            bottom: 0;
+            opacity: 0;
+        }
+
+        to {
+            bottom: 30px;
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeincevo {
+        from {
+            bottom: 0;
+            opacity: 0;
+        }
+
+        to {
+            bottom: 30px;
+            opacity: 1;
+        }
+    }
+
+    @-webkit-keyframes fadeoutcevo {
+        from {
+            bottom: 30px;
+            opacity: 1;
+        }
+
+        to {
+            bottom: 0;
+            opacity: 0;
+        }
+    }
+
+    @keyframes fadeoutcevo {
+        from {
+            bottom: 30px;
+            opacity: 1;
+        }
+
+        to {
+            bottom: 0;
+            opacity: 0;
+        }
+    }
+
+    .emoji-picker__wrapper {
+        z-index: 1 !important;
+    }
+
+</style>

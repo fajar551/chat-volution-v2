@@ -1,0 +1,7 @@
+---
+deployment:
+  tasks:
+    - /bin/cp -R test_client/* /home/chatvolutionmy/public_html/client
+    - /bin/cp -R public/js/* /home/chatvolutionmy/public_html/js
+    - /bin/cp -R public/css/* /home/chatvolutionmy/public_html/css
+    - /bin/cp -R public/assets/* /home/chatvolutionmy/public_html/assets

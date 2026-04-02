@@ -1,0 +1,14 @@
+node_modules/
+package-lock.json
+.env
+build/
+yarn-error.log
+
+.yarn/*
+yan.*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*

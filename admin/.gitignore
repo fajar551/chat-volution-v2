@@ -1,0 +1,19 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+# Upload runtime — hindari path sangat panjang / nama file invalid di Windows
+/storage/assets/images/uploads/
+/vendor
+/testing
+.env
+.env.backup
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+composer.lock
+public/js/ngulik.js
+resources/views/ngulik.blade.php
+public/assets/images/uploads

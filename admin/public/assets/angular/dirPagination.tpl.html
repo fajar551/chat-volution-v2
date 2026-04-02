@@ -1,0 +1,24 @@
+<nav aria-label="Page navigation">
+	<ul class="pagination pagination-sm mb-0" ng-if="1 < pages.length || !autoHide">
+		<li class="page-item" ng-if="boundaryLinks" ng-class="{ disabled : pagination.current == 1 }">
+			<a href="" class="page-link" ng-click="setCurrent(1)">First</a>
+		</li>
+		<li class="page-item" ng-if="directionLinks" ng-class="{ disabled : pagination.current == 1 }">
+			<a href="" class="page-link" ng-click="setCurrent(pagination.current - 1)"><i
+					class="dripicons dripicons-chevron-left"></i></a>
+		</li>
+		<li class="page-item" ng-repeat="pageNumber in pages track by tracker(pageNumber, $index)"
+			ng-class="{ active : pagination.current == pageNumber, disabled : pageNumber == '...' }">
+			<a href="" class="page-link" ng-click="setCurrent(pageNumber)">{{ pageNumber }}</a>
+		</li>
+
+		<!-- <li class="page-item" ng-if="directionLinks" ng-class="{ disabled : pagination.current == pagination.last }">
+			<a href="" class="page-link" ng-click="setCurrent(pagination.current + 1)"><i
+					class="dripicons dripicons-chevron-right"></i>Next</a>
+		</li> -->
+		<li class="page-item" ng-if="boundaryLinks" ng-class="{ disabled : pagination.current == pagination.last }">
+			<a href="" class="page-link" ng-click="setCurrent(pagination.last)">Last</a>
+		</li>
+	</ul>
+</nav>
+<div class="clearfix"></div>

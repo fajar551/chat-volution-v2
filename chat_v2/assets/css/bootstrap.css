@@ -1,0 +1,171 @@
+/*
+Template Name: Chatvia - Responsive Bootstrap 4 Chat App
+Author: Themesbrand
+Version: 2.1.0
+Website: https://themesbrand.com/
+Contact: themesbrand@gmail.com
+File: Custom Bootstrap Css File
+*/
+/* =============
+   General
+============= */
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+a {
+  text-decoration: none !important;
+}
+
+label {
+  font-weight: 500;
+}
+
+@media (min-width: 1400px) {
+  .container {
+    max-width: 1140px;
+  }
+}
+button,
+a {
+  outline: none !important;
+}
+
+.btn-rounded {
+  border-radius: 30px;
+  border-radius: 30px;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  font-family: "Material Design Icons";
+}
+
+.card-title {
+  font-size: 15px;
+  margin: 0 0 7px 0;
+}
+
+.card-title-desc {
+  margin-bottom: 24px;
+}
+
+.dropdown-menu {
+  -webkit-animation-name: DropDownSlide;
+          animation-name: DropDownSlide;
+  -webkit-animation-duration: 0.3s;
+          animation-duration: 0.3s;
+  -webkit-animation-fill-mode: both;
+          animation-fill-mode: both;
+  margin: 0;
+  position: absolute;
+  z-index: 1000;
+}
+.dropdown-menu.show {
+  top: 100% !important;
+}
+
+.dropdown-menu-end[style] {
+  right: 0 !important;
+  left: auto !important;
+}
+
+.dropdown-menu[data-popper-placement^=right],
+.dropdown-menu[data-popper-placement^=top],
+.dropdown-menu[data-popper-placement^=left] {
+  top: auto !important;
+  -webkit-animation: none !important;
+          animation: none !important;
+}
+
+@-webkit-keyframes DropDownSlide {
+  100% {
+    transform: translateY(0);
+  }
+  0% {
+    transform: translateY(10px);
+  }
+}
+
+@keyframes DropDownSlide {
+  100% {
+    transform: translateY(0);
+  }
+  0% {
+    transform: translateY(10px);
+  }
+}
+@media (min-width: 600px) {
+  .dropdown-menu-lg {
+    width: 320px;
+  }
+
+  .dropdown-menu-md {
+    width: 240px;
+  }
+}
+.nav-tabs-custom .nav-item {
+  position: relative;
+}
+.nav-tabs-custom .nav-item .nav-link {
+  border: none;
+}
+.nav-tabs-custom .nav-item .nav-link::after {
+  content: "";
+  height: 2px;
+  position: absolute;
+  width: 100%;
+  left: 0;
+  bottom: -1px;
+  transition: all 250ms ease 0s;
+  transform: scale(0);
+}
+.nav-tabs-custom .nav-item .nav-link.active:after {
+  transform: scale(1);
+}
+
+.vertical-nav .nav .nav-link {
+  padding: 24px 16px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.vertical-nav .nav .nav-link .nav-icon {
+  font-size: 24px;
+}
+
+.table-centered td,
+.table-centered th {
+  vertical-align: middle !important;
+}
+
+.table-nowrap th,
+.table-nowrap td {
+  white-space: nowrap;
+}
+
+.pagination-rounded .page-link {
+  border-radius: 30px !important;
+  margin: 0 3px;
+  border: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  text-align: center;
+  line-height: 32px;
+}
+
+.progress-sm {
+  height: 5px;
+}
+
+.progress-md {
+  height: 8px;
+}
+
+.progress-lg {
+  height: 12px;
+}
+
+.progress-xl {
+  height: 16px;
+}/*# sourceMappingURL=bootstrap.css.map */
