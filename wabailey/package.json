@@ -1,0 +1,39 @@
+{
+  "name": "wabailey",
+  "version": "1.0.0",
+  "description": "WhatsApp Socket Server using Baileys - Compatible with wa1 routes",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "pm2": "pm2 start app.js --name wabailey"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "socket",
+    "nodejs",
+    "express"
+  ],
+  "author": "Chatvolution",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.8",
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.3",
+    "express": "^4.18.2",
+    "file-type": "^17.1.6",
+    "mysql2": "^2.3.3",
+    "pg": "^8.7.3",
+    "pg-hstore": "^2.3.4",
+    "pino": "^8.16.0",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
+    "sequelize": "^6.21.3",
+    "socket.io": "^4.7.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat Interface - Socket v1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #25D366;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .main-content {
+            display: flex;
+            min-height: 600px;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 20px;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 400px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.sent {
+            background: #DCF8C6;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.received {
+            background: #FFFFFF;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .btn {
+            background-color: #25D366;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background-color: #128C7E;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            margin: 5px;
+        }
+
+        #qrCode {
+            max-width: 250px;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .phone-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .message-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background: white;
+        }
+
+        .message-item {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .message-item:hover {
+            background: #f0f0f0;
+        }
+
+        .message-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>WhatsApp Chat Interface v2</h1>
+            <div id="status" class="status loading">Connecting...</div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h3>WhatsApp Control</h3>
+                <img id="qrCode" src="" alt="QR Code" style="display: none;">
+                <div id="message"></div>
+
+                <button class="btn btn-small" onclick="initialize()">Initialize WhatsApp</button>
+                <button class="btn btn-small" onclick="logout()">Logout</button>
+                <button class="btn btn-small" onclick="checkStatus()">Check Status</button>
+                <button class="btn btn-small" onclick="clearMessages()">Clear Messages</button>
+                <button class="btn btn-small" onclick="cleanupAuth()">Clean Auth Folder</button>
+                <small class="text-muted">Messages auto-refresh when connected</small>
+
+                <h4>Send Message</h4>
+                <input type="text" id="phoneInput" class="phone-input"
+                    placeholder="Enter phone number (e.g., 6282130697168)">
+                <input type="text" id="messageInput" class="phone-input" placeholder="Enter message">
+                <button class="btn btn-small" onclick="sendMessage()">Send Message</button>
+
+                <h4>Recent Messages</h4>
+                <div id="messageList" class="message-list"></div>
+            </div>
+
+            <div class="chat-area">
+                <div class="chat-header">
+                    <span id="chatTitle">WhatsApp Chat</span>
+                </div>
+                <div id="chatMessages" class="chat-messages">
+                    <div style="text-align: center; color: #666; margin-top: 50px;">
+                        Select a conversation or send a message to start chatting
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <div class="input-group">
+                        <input type="text" id="chatInput" placeholder="Type a message...">
+                        <button class="btn" onclick="sendChatMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/wa5/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io({ path: '/wa5/socket.io/' });
+        let currentPhone = '';
+        let messages = [];
+        let autoRefreshInterval = null;
+        let processedMessageIds = new Set(); // Track processed message IDs
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            updateStatus('loading', 'Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            updateStatus('disconnected', 'Disconnected from server');
+        });
+
+        socket.on('qr', (data) => {
+            console.log('QR Code received');
+            document.getElementById('qrCode').src = data.image;
+            document.getElementById('qrCode').style.display = 'block';
+            updateStatus('loading', 'Scan QR code with your WhatsApp');
+        });
+
+        socket.on('status', (data) => {
+            console.log('Status update:', data);
+            if (data.status === 'connected') {
+                updateStatus('connected', 'WhatsApp connected successfully!');
+                document.getElementById('qrCode').style.display = 'none';
+                // Auto load messages when connected
+                loadMessages();
+                // Start auto refresh every 5 seconds when connected
+                startAutoRefresh();
+            } else if (data.status === 'disconnected') {
+                updateStatus('disconnected', 'WhatsApp disconnected');
+                // Stop auto refresh when disconnected
+                stopAutoRefresh();
+                // Clear interface when disconnected
+                clearInterface();
+            } else if (data.status === 'auth_failure') {
+                updateStatus('disconnected', 'Authentication failed');
+                stopAutoRefresh();
+                // Clear interface when auth failure
+                clearInterface();
+            }
+        });
+
+        socket.on('message', (data) => {
+            console.log('New message received:', data);
+
+            // Check for duplicate messages
+            if (processedMessageIds.has(data.id)) {
+                console.log('🚫 Duplicate message ignored:', data.id);
+                return;
+            }
+
+            // Filter out newsletter messages on client side too
+            if (data.from && data.from.includes('@newsletter')) {
+                console.log('🚫 Newsletter message filtered out on client:', data.from);
+                return;
+            }
+
+            // Mark message as processed
+            processedMessageIds.add(data.id);
+            messages.push(data);
+            displayMessage(data);
+            updateMessageList();
+        });
+
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        function displayMessage(message) {
+            // Only display message if it's relevant to current chat
+            if (currentPhone && !isMessageRelevantToCurrentChat(message)) {
+                return; // Don't display message from other chats
+            }
+
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+
+            // Determine if message is sent by current user
+            const isFromMe = message.from === 'me' || message.type === 'sent';
+            messageDiv.className = `message ${isFromMe ? 'sent' : 'received'}`;
+
+            messageDiv.innerHTML = `
+                <div>${message.body}</div>
+                <div class="message-time">${new Date(message.receivedAt).toLocaleString()}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function isMessageRelevantToCurrentChat(message) {
+            if (!currentPhone) return false;
+
+            // Check if message is from current chat or sent to current chat
+            const normalizedCurrentPhone = currentPhone.replace('@c.us', '');
+            const messageFrom = message.from.replace('@c.us', '');
+            const messageTo = message.to ? message.to.replace('@c.us', '') : '';
+
+            return messageFrom === normalizedCurrentPhone ||
+                messageTo === normalizedCurrentPhone ||
+                (message.from === 'me' && messageTo === normalizedCurrentPhone) ||
+                (message.type === 'sent' && messageTo === normalizedCurrentPhone);
+        }
+
+        function displaySentMessage(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message sent`;
+            messageDiv.innerHTML = `
+                <div>${message}</div>
+                <div class="message-time">${new Date().toLocaleString()}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function updateMessageList() {
+            const messageList = document.getElementById('messageList');
+            messageList.innerHTML = '';
+
+            // Group messages by phone number, excluding newsletter
+            const phoneGroups = {};
+            messages.forEach(msg => {
+                // Filter out newsletter messages
+                if (msg.from && msg.from.includes('@newsletter')) {
+                    return;
+                }
+
+                if (!phoneGroups[msg.from]) {
+                    phoneGroups[msg.from] = [];
+                }
+                phoneGroups[msg.from].push(msg);
+            });
+
+            // Display grouped messages
+            Object.keys(phoneGroups).forEach(phone => {
+                const group = phoneGroups[phone];
+                const lastMessage = group[group.length - 1];
+
+                const item = document.createElement('div');
+                item.className = 'message-item';
+                item.innerHTML = `
+                    <strong>${phone}</strong><br>
+                    <small>${lastMessage.body.substring(0, 50)}...</small>
+                `;
+                item.onclick = () => selectConversation(phone);
+                messageList.appendChild(item);
+            });
+        }
+
+        function selectConversation(phone) {
+            // Normalize phone number - remove @c.us if present
+            let normalizedPhone = phone;
+            if (phone.includes('@c.us')) {
+                normalizedPhone = phone.replace('@c.us', '');
+            }
+
+            currentPhone = normalizedPhone;
+            document.getElementById('chatTitle').textContent = `Chat with ${normalizedPhone}`;
+
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+
+            // Display messages for this phone (both incoming and outgoing), excluding newsletter
+            const phoneMessages = messages.filter(msg => {
+                // Filter out newsletter messages
+                if (msg.from && msg.from.includes('@newsletter')) {
+                    return false;
+                }
+
+                return msg.from === phone ||
+                    (msg.from === 'me' && msg.to === `${normalizedPhone}@c.us`) ||
+                    (msg.type === 'sent' && msg.to === `${normalizedPhone}@c.us`);
+            });
+
+            // Sort messages by timestamp
+            phoneMessages.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
+
+            phoneMessages.forEach(msg => {
+                // Create a temporary display without the relevance check
+                const messageDiv = document.createElement('div');
+                const isFromMe = msg.from === 'me' || msg.type === 'sent';
+                messageDiv.className = `message ${isFromMe ? 'sent' : 'received'}`;
+
+                messageDiv.innerHTML = `
+                    <div>${msg.body}</div>
+                    <div class="message-time">${new Date(msg.receivedAt).toLocaleString()}</div>
+                `;
+                chatMessages.appendChild(messageDiv);
+            });
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function startAutoRefresh() {
+            // Clear existing interval if any
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            // Auto refresh every 5 seconds
+            autoRefreshInterval = setInterval(() => {
+                console.log('Auto refreshing messages...');
+                loadMessages();
+            }, 5000);
+
+            console.log('Auto refresh started');
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                console.log('Auto refresh stopped');
+            }
+        }
+
+        function clearInterface() {
+            // Clear all data
+            currentPhone = null;
+            messages = []; // Clear messages array
+            processedMessageIds.clear(); // Clear processed IDs
+
+            // Clear interface elements
+            document.getElementById('chatTitle').textContent = 'WhatsApp Chat';
+            document.getElementById('chatMessages').innerHTML = '<div style="text-align: center; color: #666; margin-top: 50px;">Select a conversation or send a message to start chatting</div>';
+            document.getElementById('messageList').innerHTML = ''; // Clear message list
+            document.getElementById('qrCode').style.display = 'none'; // Hide QR code
+
+            console.log('✅ Interface cleared');
+        }
+
+        function initialize() {
+            fetch('/wa5/init')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Initialize response:', data);
+                    updateStatus('loading', 'Initializing WhatsApp...');
+                })
+                .catch(error => {
+                    console.error('Error initializing:', error);
+                    updateStatus('disconnected', 'Error initializing: ' + error.message);
+                });
+        }
+
+        function logout() {
+            fetch('/wa5/logout')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Logout response:', data);
+
+                    let statusMessage = 'WhatsApp logged out';
+                    if (data.authCleaned) {
+                        statusMessage += ' - Auth folder cleaned';
+                    }
+
+                    updateStatus('disconnected', statusMessage);
+
+                    // Stop auto refresh
+                    stopAutoRefresh();
+
+                    // Clear interface
+                    clearInterface();
+
+                    console.log('✅ Interface cleared after logout');
+                    if (data.authCleaned) {
+                        console.log('✅ Auth folder cleaned successfully');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error logging out:', error);
+                });
+        }
+
+        function checkStatus() {
+            fetch('/wa5/status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Status response:', data);
+                    if (data.connected) {
+                        updateStatus('connected', 'WhatsApp is connected');
+                    } else {
+                        updateStatus('disconnected', 'WhatsApp is not connected');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                    updateStatus('disconnected', 'Error checking status: ' + error.message);
+                });
+        }
+
+        function loadMessages() {
+            fetch('/wa5/messages')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Messages response:', data);
+                    const newMessages = data.messages || [];
+
+                    // Filter out already processed messages
+                    const uniqueMessages = newMessages.filter(msg => !processedMessageIds.has(msg.id));
+
+                    // Add new unique messages
+                    uniqueMessages.forEach(msg => {
+                        processedMessageIds.add(msg.id);
+                        messages.push(msg);
+                    });
+
+                    updateMessageList();
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                });
+        }
+
+        function clearMessages() {
+            fetch('/wa5/messages', { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Clear messages response:', data);
+                    messages = [];
+                    processedMessageIds.clear(); // Clear processed IDs
+                    document.getElementById('chatMessages').innerHTML = '<div style="text-align: center; color: #666; margin-top: 50px;">No messages</div>';
+                    updateMessageList();
+                })
+                .catch(error => {
+                    console.error('Error clearing messages:', error);
+                });
+        }
+
+        function cleanupAuth() {
+            fetch('/wa5/cleanup-auth')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Cleanup auth response:', data);
+                    if (data.success) {
+                        updateStatus('disconnected', 'Auth folder cleaned successfully');
+                        console.log('✅ Auth folder cleaned manually');
+                    } else {
+                        updateStatus('disconnected', 'Failed to clean auth folder');
+                        console.error('❌ Failed to clean auth folder');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cleaning auth folder:', error);
+                    updateStatus('disconnected', 'Error cleaning auth folder');
+                });
+        }
+
+        function sendMessage() {
+            const phone = document.getElementById('phoneInput').value;
+            const message = document.getElementById('messageInput').value;
+
+            if (!phone || !message) {
+                alert('Please enter both phone number and message');
+                return;
+            }
+
+            fetch('/wa5/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, message })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Send response:', data);
+                    if (data.success) {
+                        // Don't display here - let socket.on('message') handle it
+                        document.getElementById('messageInput').value = '';
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    alert('Error sending message: ' + error.message);
+                });
+        }
+
+        function sendChatMessage() {
+            const message = document.getElementById('chatInput').value;
+
+            if (!message || !currentPhone) {
+                alert('Please select a conversation and enter a message');
+                return;
+            }
+
+            fetch('/wa5/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: currentPhone, message })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Send response:', data);
+                    if (data.success) {
+                        // Don't display here - let socket.on('message') handle it
+                        document.getElementById('chatInput').value = '';
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    alert('Error sending message: ' + error.message);
+                });
+        }
+
+        // Check status on page load
+        checkStatus();
+        loadMessages();
+
+        // Allow Enter key to send message
+        document.getElementById('chatInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>

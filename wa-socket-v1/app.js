@@ -1,0 +1,4550 @@
+require('dotenv').config();
+
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const qrcode = require('qrcode');
+const qrcodeTerminal = require('qrcode-terminal');
+const axios = require('axios');
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+
+// Database imports
+const { db, testConnection } = require('./config/database');
+const { Op, Sequelize } = require('sequelize');
+const WhatsAppMessage = require('./models/WhatsAppMessage');
+const ChatChannelAccount = require('./models/ChatChannelAccount');
+const ApiKey = require('./models/ApiKey');
+
+// Express Setup
+const app = express();
+const server = createServer(app);
+const port = process.env.PORT || 4003;
+// const WEB_SOCKET_CV = process.env.WEB_SOCKET_CV;
+
+// Middleware
+app.use(cors({
+  origin: [
+    'https://admin-chat.genio.id',
+    'https://v2chat.genio.id',
+    'https://waserverlive.genio.id',
+    'https://103.102.153.200:4003',
+    'http://103.102.153.200:4003',
+    'https://chatvolution.my.id',
+    'http://chatvolution.my.id',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static('public'));
+
+// Helper functions untuk file handling
+let fileTypeFromBuffer_ = null;
+
+// Import file-type dynamically (ES module)
+(async () => {
+  try {
+    const { fileTypeFromBuffer } = await import('file-type');
+    fileTypeFromBuffer_ = fileTypeFromBuffer;
+  } catch (error) {
+    console.error('⚠️ Warning: file-type module not found. Please install: npm install file-type@^17.1.2');
+  }
+})();
+
+// Helper function untuk generate random string
+const randomString = (length = 10) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// Helper function untuk slugify
+const slugify = (text) => {
+  return String(text)
+    .replace(/@c\.us/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+};
+
+// Helper function untuk get current date (dateonly format)
+const getCurrentDateTime = (type = null, separator = '-') => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  if (type === 'dateonly') {
+    return `${year}${separator}${month}${separator}${day}`;
+  }
+  return `${year}${separator}${month}${separator}${day} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+};
+
+// Helper function untuk save media file ke disk
+const saveMediaToDisk = async (media, messageFrom) => {
+  try {
+    if (!media || !media.data) {
+      throw new Error('Media data is required');
+    }
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(media.data, 'base64');
+
+    // Detect file type
+    let fileExtension = 'jpg'; // default
+    let fileMime = media.mimetype || 'image/jpeg';
+
+    if (fileTypeFromBuffer_) {
+      try {
+        const fileType = await fileTypeFromBuffer_(buffer);
+        if (fileType) {
+          fileExtension = fileType.ext;
+          fileMime = fileType.mime;
+        }
+      } catch (typeError) {
+        console.warn('⚠️ Could not detect file type, using default:', typeError.message);
+        // Try to extract extension from mimetype
+        if (media.mimetype) {
+          const mimeParts = media.mimetype.split('/');
+          if (mimeParts.length > 1) {
+            fileExtension = mimeParts[1].split(';')[0]; // Remove charset if present
+            if (fileExtension === 'jpeg') fileExtension = 'jpg';
+          }
+        }
+      }
+    } else {
+      // Fallback: extract from mimetype
+      if (media.mimetype) {
+        const mimeParts = media.mimetype.split('/');
+        if (mimeParts.length > 1) {
+          fileExtension = mimeParts[1].split(';')[0];
+          if (fileExtension === 'jpeg') fileExtension = 'jpg';
+        }
+      }
+    }
+
+    // Determine file category
+    const availableMime = ['image', 'video', 'archive', 'other'];
+    const getMime = fileMime.split('/');
+    const uploadedMime = getMime[0];
+    const fileCategory = availableMime.includes(uploadedMime) ? uploadedMime : 'other';
+
+    // Generate filename
+    const dateStr = getCurrentDateTime('dateonly', '');
+    const phoneSlug = slugify(messageFrom);
+    const fname = `${dateStr}${randomString(10)}-${phoneSlug}.${fileExtension}`;
+    const storeLocation = 'whatsapp-chat';
+    const storeFileRename = `${storeLocation}/${fname}`;
+    const fullPath = path.join(__dirname, 'public', storeFileRename);
+
+    // Ensure directory exists
+    const dirPath = path.dirname(fullPath);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // Write file to disk
+    fs.writeFileSync(fullPath, buffer);
+
+    // Return file info
+    return {
+      path: storeFileRename,
+      name: fname,
+      type: fileCategory,
+      mimetype: fileMime,
+      extension: fileExtension,
+      url: `/${storeFileRename}` // URL untuk diakses via static file server
+    };
+  } catch (error) {
+    console.error('❌ Error saving media to disk:', error);
+    throw error;
+  }
+};
+
+// Router untuk /wa1 path - duplicate semua routes dengan prefix /wa1
+const wa1Router = express.Router();
+
+// Copy semua routes ke wa1Router
+wa1Router.get('/', (req, res) => {
+  res.send('Hello World from fajar di wa socket v2?! ');
+});
+
+wa1Router.get('/status', async (req, res) => {
+  try {
+    const state = await client.getState();
+    const isConnected = state === 'CONNECTED';
+
+    res.json({
+      connected: isConnected,
+      state: state,
+      requiresReinit: !isConnected,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    // Session closed error
+    if (error.message && (
+      error.message.includes('Session closed') ||
+      error.message.includes('Protocol error') ||
+      error.message.includes('Runtime.callFunctionOn')
+    )) {
+      return res.status(500).json({
+        connected: false,
+        error: 'Session closed. Most likely the page has been closed.',
+        requiresReinit: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.status(500).json({
+      connected: false,
+      error: error.message || 'Unknown error',
+      requiresReinit: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+wa1Router.post('/send', async (req, res) => {
+  try {
+    const { phone, message, agentId } = req.body;
+    if (!phone || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone and message are required'
+      });
+    }
+
+    // If AI processing is in progress for this phone, block auto-replies from frontend
+    try {
+      const plainPhone = normalizePhoneNumber(phone);
+      //('📥 Incoming send request:', { phone: plainPhone, agentId, message: message.substring(0, 30) });
+      //('🔍 AI in-progress phones:', Array.from(global.aiInProgressPhones || []));
+      //('🔍 Is phone in AI progress?', global.aiInProgressPhones.has(plainPhone));
+
+      if (agentId === 'react-app') {
+        if (global.aiInProgressPhones.has(plainPhone)) {
+          // Check if AI processing has been going on for too long (more than 30 seconds)
+          const startTime = global.aiProcessingStartTime.get(plainPhone);
+          const processingTime = startTime ? Date.now() - startTime : 0;
+
+          if (processingTime > 30000) { // 30 seconds
+            //('⏰ AI processing timeout, clearing flag for:', plainPhone);
+            global.aiInProgressPhones.delete(plainPhone);
+            global.aiProcessingStartTime.delete(plainPhone);
+            //('⚠️ Allowing react-app message (AI timeout)');
+          } else {
+            //('🚫 Blocked frontend auto-reply while AI processing:', plainPhone, `(${Math.round(processingTime / 1000)}s)`);
+            return res.status(409).json({
+              success: false,
+              message: 'AI processing in progress, blocking duplicate reply'
+            });
+          }
+        } else {
+          // Check cooldown period (10 seconds after last AI response)
+          const lastResponseTime = global.lastAiResponseTime.get(plainPhone);
+          const timeSinceLastResponse = lastResponseTime ? Date.now() - lastResponseTime : 0;
+
+          if (lastResponseTime && timeSinceLastResponse < 10000) { // 10 seconds cooldown
+            //('🚫 Blocked frontend auto-reply (cooldown period):', plainPhone, `(${Math.round(timeSinceLastResponse / 1000)}s since last AI response)`);
+            return res.status(409).json({
+              success: false,
+              message: 'Cooldown period active, please wait before sending another message'
+            });
+          } else {
+            //('⚠️ Allowing react-app message (no AI in progress, cooldown passed)');
+          }
+        }
+      }
+    } catch (error) {
+      //('❌ Error checking AI progress:', error);
+    }
+
+    // Create request fingerprint for deduplication
+    const requestFingerprint = `${phone}_${message}_${Date.now()}`;
+
+    // Check if this exact request was already processed recently (within 5 seconds)
+    const recentRequests = Array.from(global.processedRequests).filter(req =>
+      req.startsWith(`${phone}_${message}_`) &&
+      (Date.now() - parseInt(req.split('_').pop())) < 5000
+    );
+
+    if (recentRequests.length > 0) {
+      //('🚫 Duplicate request detected, skipping:', requestFingerprint);
+      return res.status(409).json({
+        success: false,
+        message: 'Duplicate request detected',
+        messageId: recentRequests[0].split('_').pop()
+      });
+    }
+
+    // Add to processed requests
+    global.processedRequests.add(requestFingerprint);
+
+    // Cleanup old requests (keep last 100)
+    if (global.processedRequests.size > 100) {
+      const requestsArray = Array.from(global.processedRequests);
+      global.processedRequests.clear();
+      requestsArray.slice(-50).forEach(req => global.processedRequests.add(req));
+    }
+
+    // Check WhatsApp connection status before sending
+    let state;
+    try {
+      state = await client.getState();
+      if (state !== 'CONNECTED') {
+        return res.status(503).json({
+          success: false,
+          message: 'WhatsApp is not connected',
+          error: `Connection status: ${state}. Please wait for connection or reinitialize.`,
+          requiresReinit: true
+        });
+      }
+    } catch (stateError) {
+      console.error('❌ Error checking WhatsApp state:', stateError);
+      return res.status(503).json({
+        success: false,
+        message: 'Unable to check WhatsApp connection status',
+        error: stateError.message || 'Session may be closed',
+        requiresReinit: true
+      });
+    }
+
+    const chatId = phone.includes('@c.us') ? phone : `${phone}@c.us`;
+    //('📤 Sending message to:', chatId, 'Message:', message.substring(0, 50) + '...');
+
+    let result;
+    try {
+      result = await client.sendMessage(chatId, message);
+    } catch (sendError) {
+      // Handle session closed error specifically
+      if (sendError.message && (
+        sendError.message.includes('Session closed') ||
+        sendError.message.includes('Protocol error') ||
+        sendError.message.includes('Runtime.callFunctionOn')
+      )) {
+        console.error('❌ WhatsApp session closed while sending message:', sendError.message);
+        return res.status(503).json({
+          success: false,
+          message: 'Failed to send message',
+          error: 'Session closed. Most likely the page has been closed.',
+          requiresReinit: true
+        });
+      }
+      // Re-throw other errors to be handled by outer catch
+      throw sendError;
+    }
+
+    // Store sent message for deduplication
+    const sentMessageId = result.id._serialized;
+    global.sentMessages.add(sentMessageId);
+
+    // Cleanup old sent messages (keep last 100)
+    if (global.sentMessages.size > 100) {
+      const messagesArray = Array.from(global.sentMessages);
+      global.sentMessages.clear();
+      messagesArray.slice(-50).forEach(msg => global.sentMessages.add(msg));
+    }
+
+    //('✅ Message sent successfully:', sentMessageId);
+
+    // Store sent message in database
+    try {
+      const toPhone = normalizePhoneNumber(chatId);
+
+      // Inherit assigned_to from existing open messages for this phone
+      let assignedTo = null;
+      const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+      const raw = digitsOnly(toPhone);
+      const variants = new Set();
+      if (raw) {
+        variants.add(raw);
+        if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+        if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+        if (!raw.startsWith('62')) variants.add('62' + raw);
+      }
+
+      const phoneVariants = Array.from(variants);
+
+      // Check if any existing message for this phone has assigned_to
+      const existingAssignedMessage = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'open' },
+            { assigned_to: { [Op.ne]: null } }
+          ]
+        },
+        attributes: ['assigned_to'],
+        order: [['received_at', 'DESC']],
+        limit: 1
+      });
+
+      if (existingAssignedMessage && existingAssignedMessage.assigned_to) {
+        assignedTo = existingAssignedMessage.assigned_to;
+        //('👤 Inheriting assigned_to from existing message:', assignedTo, 'for phone:', toPhone);
+      }
+
+      await WhatsAppMessage.create({
+        message_id: sentMessageId,
+        from_number: 'me',
+        to_number: toPhone,
+        body: message,
+        timestamp: Math.floor(Date.now() / 1000),
+        received_at: new Date().toISOString(),
+        direction: 'outgoing',
+        message_type: 'text',
+        status: 'sent',
+        agent_id: agentId || 'wa1-system',
+        is_read: true, // Outgoing messages are considered read
+        chat_status: 'open', // New messages are open by default
+        assigned_to: assignedTo, // Inherit assigned_to if chat is already assigned
+        instance: 'wa1' // Set instance to wa1 for wa-socket-v1
+      });
+      //('💾 Sent message saved to database', assignedTo ? `(assigned to ${assignedTo})` : '');
+    } catch (dbError) {
+      console.error('❌ Database error saving sent message:', dbError);
+    }
+
+    // Add sent message to global.allMessages for real-time display
+    const sentMessageData = {
+      id: sentMessageId,
+      from: 'me',
+      to: chatId,
+      body: message,
+      timestamp: Math.floor(Date.now() / 1000),
+      hasMedia: false,
+      receivedAt: new Date().toISOString(),
+      type: 'sent'
+    };
+
+    global.allMessages.push(sentMessageData);
+    //('📝 Added sent message to global.allMessages');
+
+    res.json({
+      success: true,
+      message: 'Message sent successfully',
+      messageId: sentMessageId
+    });
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+
+    // Handle session closed error
+    if (error.message && (
+      error.message.includes('Session closed') ||
+      error.message.includes('Protocol error') ||
+      error.message.includes('Runtime.callFunctionOn')
+    )) {
+      return res.status(503).json({
+        success: false,
+        message: 'Failed to send message',
+        error: 'Session closed. Most likely the page has been closed.',
+        requiresReinit: true
+      });
+    }
+
+    // Handle other errors
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error.message || 'Unknown error occurred'
+    });
+  }
+});
+
+wa1Router.get('/init', (req, res) => {
+  try {
+    client.initialize();
+    res.json({ success: true, message: 'WhatsApp client initialization started' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+wa1Router.get('/logout', async (req, res) => {
+  try {
+    await client.logout();
+    res.json({ success: true, message: 'WhatsApp client logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+wa1Router.get('/scan', (req, res) => {
+  res.sendFile(__dirname + '/scan.html');
+});
+
+wa1Router.get('/cleanup-auth', (req, res) => {
+  try {
+    const cleanupSuccess = cleanupAuthFolder();
+    if (cleanupSuccess) {
+      res.json({ success: true, message: 'Auth folder cleaned successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to clean auth folder' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+wa1Router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+wa1Router.get('/messages', (req, res) => {
+  try {
+    const messages = global.allMessages || [];
+    res.json({
+      success: true,
+      messages: messages,
+      count: messages.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get messages',
+      error: error.message
+    });
+  }
+});
+
+// New endpoint: Get messages by instance
+wa1Router.get('/api/whatsapp/messages-by-instance/:instance', async (req, res) => {
+  try {
+    const { instance } = req.params;
+    const { includeClosed } = req.query;
+    //(`📥 Fetching messages from instance ${instance}, includeClosed:`, includeClosed);
+
+    // Build query conditions
+    const whereClause = {
+      instance: instance
+    };
+
+    if (includeClosed !== 'true') {
+      // Only show open messages by default
+      whereClause.chat_status = 'open';
+    }
+
+    const dbMessages = await WhatsAppMessage.findAll({
+      where: whereClause,
+      order: [
+        ['received_at', 'ASC'],
+        ['id', 'ASC']
+      ]
+    });
+
+    //(`📊 Found ${dbMessages.length} messages from instance ${instance}`);
+
+    // Transform messages to match expected format
+    const transformedMessages = dbMessages.map(msg => {
+      let mediaData = null;
+      let fileUrl = null;
+
+      if (msg.media_data) {
+        try {
+          mediaData = typeof msg.media_data === 'string' ? JSON.parse(msg.media_data) : msg.media_data;
+          // Extract file_url if available (new format with URL)
+          if (mediaData && mediaData.url) {
+            fileUrl = mediaData.url;
+          }
+        } catch (parseError) {
+          console.error(`❌ Failed to parse media_data:`, parseError.message);
+          mediaData = null;
+        }
+      }
+
+      return {
+        id: msg.message_id,
+        from: msg.from_number === 'me' ? 'me' : `${msg.from_number}@c.us`,
+        to: msg.to_number ? `${msg.to_number}@c.us` : null,
+        body: msg.body,
+        timestamp: msg.timestamp,
+        receivedAt: msg.received_at,
+        type: msg.direction === 'outgoing' ? 'sent' : 'received',
+        hasMedia: !!msg.media_data,
+        media: mediaData,
+        file_url: fileUrl, // Add file_url for frontend compatibility (URL instead of base64)
+        is_read: msg.is_read,
+        chat_status: msg.chat_status,
+        instance: msg.instance || 'wa1'
+      };
+    });
+
+    return res.json({
+      success: true,
+      messages: transformedMessages,
+      instance: instance,
+      count: transformedMessages.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching messages by instance:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch messages',
+      error: error.message
+    });
+  }
+});
+
+// New endpoint: Get messages from database (for chat_v2)
+wa1Router.get('/api/whatsapp/messages/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { includeClosed } = req.query; // Allow fetching closed messages for history view
+    //('📥 Fetching messages from database for phone:', phone, 'includeClosed:', includeClosed);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    // Get messages from database
+    const phoneVariants = Array.from(variants);
+
+    // Build query conditions
+    const queryConditions = [
+      // Incoming messages: from this phone to me (or null)
+      {
+        from_number: { [Op.in]: phoneVariants },
+        direction: 'incoming'
+      },
+      // Outgoing messages: from me to this phone
+      {
+        from_number: 'me',
+        to_number: { [Op.in]: phoneVariants },
+        direction: 'outgoing'
+      }
+    ];
+
+    // Build where clause - include closed messages if requested
+    const whereClause = {
+      [Op.or]: queryConditions
+    };
+
+    if (includeClosed !== 'true') {
+      // Only show open messages by default
+      whereClause.chat_status = 'open';
+    } else {
+      // When includeClosed=true, show both open and closed messages
+      // This allows viewing closed messages in history view
+      whereClause.chat_status = { [Op.in]: ['open', 'closed'] };
+    }
+
+    const dbMessages = await WhatsAppMessage.findAll({
+      where: whereClause,
+      order: [
+        ['received_at', 'ASC'],
+        ['id', 'ASC'] // Use ID as tiebreaker for messages with same timestamp
+      ]
+    });
+
+    //('📊 Found', dbMessages.length, 'messages in database for phone:', phone);
+
+    // Debug: Log message order before transformation
+    if (dbMessages.length > 0) {
+      //('📋 Messages order from DB (wa1Router):');
+      dbMessages.forEach((msg, idx) => {
+        //(`  ${idx + 1}. ${msg.direction} | received_at: ${msg.received_at} | timestamp: ${msg.timestamp} | body: ${msg.body?.substring(0, 30)}`);
+      });
+    }
+
+    // Transform database messages to format expected by frontend
+    const transformedMessages = dbMessages.map((msg, index) => {
+      const fromPhone = msg.from_number === 'me' ? 'me' :
+        (msg.from_number ? `${msg.from_number}@c.us` : '');
+      const toPhone = msg.to_number ? `${msg.to_number}@c.us` : '';
+
+      // Use received_at only for sorting (most reliable)
+      const receivedAtDate = msg.received_at ? new Date(msg.received_at) : new Date();
+      const receivedAtMs = receivedAtDate.getTime();
+
+      // Safely parse media_data JSON
+      let mediaData = null;
+      let fileUrl = null;
+      if (msg.media_data) {
+        try {
+          // Try to parse as JSON
+          if (typeof msg.media_data === 'string') {
+            // Check if it's already a JSON string
+            const trimmed = msg.media_data.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              mediaData = JSON.parse(msg.media_data);
+              // Extract file_url if available (new format with URL)
+              if (mediaData && mediaData.url) {
+                fileUrl = mediaData.url;
+              } else if (mediaData && mediaData.data) {
+                // Old format with base64 - don't send base64, only URL if available
+                fileUrl = mediaData.url || null;
+              }
+            } else {
+              // If it's not JSON, treat as plain string or URL
+              console.warn(`⚠️ media_data is not JSON for message ${msg.message_id}:`, msg.media_data.substring(0, 50));
+              mediaData = { url: msg.media_data };
+              fileUrl = msg.media_data;
+            }
+          } else if (typeof msg.media_data === 'object') {
+            // Already an object, use directly
+            mediaData = msg.media_data;
+            // Extract file_url if available
+            if (mediaData && mediaData.url) {
+              fileUrl = mediaData.url;
+            }
+          }
+        } catch (parseError) {
+          console.error(`❌ Failed to parse media_data for message ${msg.message_id}:`, parseError.message);
+          console.error(`❌ media_data value:`, msg.media_data?.substring ? msg.media_data.substring(0, 100) : msg.media_data);
+          // If parsing fails, try to use as URL or data
+          mediaData = { url: typeof msg.media_data === 'string' ? msg.media_data : null };
+          fileUrl = typeof msg.media_data === 'string' ? msg.media_data : null;
+        }
+      }
+
+      return {
+        id: msg.message_id,
+        from: fromPhone,
+        to: toPhone,
+        body: msg.body || '',
+        timestamp: Math.floor(receivedAtMs / 1000), // Convert received_at to Unix timestamp in seconds
+        hasMedia: msg.message_type === 'image' || msg.message_type === 'media' || !!msg.media_data,
+        receivedAt: msg.received_at || new Date().toISOString(),
+        type: msg.direction === 'outgoing' ? 'sent' : 'received',
+        media: mediaData,
+        file_url: fileUrl, // Add file_url for frontend compatibility (URL instead of base64)
+        media_data: msg.media_data || null, // Include raw media_data for fallback parsing
+        message_type: msg.message_type || null, // Include message_type for type detection
+        agentId: msg.agent_id || null,
+        agent_id: msg.agent_id || null, // Also include as agent_id for compatibility
+        instance: msg.instance || 'wa1', // Include instance from database
+        chat_status: msg.chat_status || null, // Include chat_status from database
+        is_pending: msg.is_pending || false, // Include is_pending from database
+        _sortIndex: index // Additional sort index from database
+      };
+    });
+
+    // Filter is already done by database query, but ensure all messages match
+    // The query already filters correctly, so we can use all transformed messages
+    const phoneMessages = transformedMessages;
+
+    // Sort messages by received_at only (most reliable) to ensure chronological order
+    // This prevents grouping by type - messages will appear in exact time order
+    phoneMessages.sort((a, b) => {
+      // Primary sort: received_at in milliseconds
+      const timeA = new Date(a.receivedAt || 0).getTime();
+      const timeB = new Date(b.receivedAt || 0).getTime();
+
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+
+      // If timestamps are equal, use sort index from database query
+      if (a._sortIndex !== undefined && b._sortIndex !== undefined) {
+        return a._sortIndex - b._sortIndex;
+      }
+
+      // Final fallback: use ID
+      return (a.id || '').localeCompare(b.id || '');
+    });
+
+    // Debug: Log message order after sorting
+    if (phoneMessages.length > 0) {
+      phoneMessages.forEach((msg, idx) => {
+        //(`  ${idx + 1}. ${msg.type} | receivedAt: ${msg.receivedAt} | timestamp: ${msg.timestamp} | body: ${msg.body?.substring(0, 30)}`);
+      });
+    }
+
+    // Remove temporary sort index before sending
+    phoneMessages.forEach(msg => delete msg._sortIndex);
+
+    //('✅ Returning', phoneMessages.length, 'filtered messages for phone:', phone);
+
+    res.json({
+      success: true,
+      messages: phoneMessages,
+      count: phoneMessages.length,
+      phone: phone,
+      source: 'database'
+    });
+  } catch (error) {
+    console.error('❌ Error fetching messages from database:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get messages from database',
+      error: error.message
+    });
+  }
+});
+
+wa1Router.get('/messages/:phone', (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const messages = global.allMessages || [];
+    const phoneMessages = messages.filter(msg =>
+      msg.from === phone || msg.to === phone
+    );
+
+    res.json({
+      success: true,
+      messages: phoneMessages,
+      count: phoneMessages.length,
+      phone: phone
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get messages for phone',
+      error: error.message
+    });
+  }
+});
+
+// AI Response deduplication endpoint
+wa1Router.post('/api/ai-response', async (req, res) => {
+  try {
+    const { phone, userMessage, messageId } = req.body;
+
+    if (!phone || !userMessage || !messageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone, userMessage, and messageId are required'
+      });
+    }
+
+    // Create AI response fingerprint for deduplication
+    const aiFingerprint = `ai_${phone}_${messageId}`;
+
+    // Check if AI response was already processed for this message
+    if (global.processedAiResponses && global.processedAiResponses.has(aiFingerprint)) {
+      //('🚫 AI response already processed, skipping:', aiFingerprint);
+      return res.status(409).json({
+        success: false,
+        message: 'AI response already processed for this message',
+        messageId: messageId
+      });
+    }
+
+    // Initialize processedAiResponses if not exists
+    if (!global.processedAiResponses) {
+      global.processedAiResponses = new Set();
+    }
+
+    // Add to processed AI responses
+    global.processedAiResponses.add(aiFingerprint);
+
+    // Cleanup old AI responses (keep last 100)
+    if (global.processedAiResponses.size > 100) {
+      const responsesArray = Array.from(global.processedAiResponses);
+      global.processedAiResponses.clear();
+      responsesArray.slice(-50).forEach(resp => global.processedAiResponses.add(resp));
+    }
+
+    //('✅ AI response approved for processing:', aiFingerprint);
+    res.json({
+      success: true,
+      message: 'AI response approved for processing',
+      messageId: messageId
+    });
+
+  } catch (error) {
+    console.error('Error processing AI response request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process AI response request',
+      error: error.message
+    });
+  }
+});
+
+// API routes
+wa1Router.get('/api/api-keys', async (req, res) => {
+  try {
+    const apiKeys = await ApiKey.findAll({
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      success: true,
+      apiKeys: apiKeys
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get API keys',
+      error: error.message
+    });
+  }
+});
+
+wa1Router.get('/api/api-keys/:service', async (req, res) => {
+  try {
+    const { service } = req.params;
+    const apiKey = await ApiKey.findOne({
+      where: { service: service, is_active: true }
+    });
+
+    if (apiKey) {
+      res.json({
+        success: true,
+        service: service,
+        api_key: apiKey.api_key,
+        is_active: apiKey.is_active
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: `API key for service ${service} not found`
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get API key',
+      error: error.message
+    });
+  }
+});
+
+wa1Router.post('/api/api-keys', async (req, res) => {
+  try {
+    const { service, api_key, is_active = true } = req.body;
+
+    if (!service || !api_key) {
+      return res.status(400).json({
+        success: false,
+        message: 'Service and API key are required'
+      });
+    }
+
+    // Check if API key already exists for this service
+    const existingApiKey = await ApiKey.findOne({
+      where: { service: service }
+    });
+
+    if (existingApiKey) {
+      // Update existing API key
+      await existingApiKey.update({
+        api_key: api_key,
+        is_active: is_active
+      });
+      res.json({
+        success: true,
+        message: 'API key updated successfully',
+        apiKey: existingApiKey
+      });
+    } else {
+      // Create new API key
+      const newApiKey = await ApiKey.create({
+        service: service,
+        api_key: api_key,
+        is_active: is_active
+      });
+      res.json({
+        success: true,
+        message: 'API key created successfully',
+        apiKey: newApiKey
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save API key',
+      error: error.message
+    });
+  }
+});
+
+wa1Router.post('/api/api-keys/test/:service', async (req, res) => {
+  try {
+    const { service } = req.params;
+    const apiKey = await ApiKey.findOne({
+      where: { service: service, is_active: true }
+    });
+
+    if (!apiKey) {
+      return res.status(404).json({
+        success: false,
+        message: `API key for service ${service} not found`
+      });
+    }
+
+    // Test API key (basic validation)
+    if (apiKey.api_key && apiKey.api_key.length > 10) {
+      res.json({
+        success: true,
+        message: 'API key is valid',
+        service: service
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'API key appears to be invalid'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to test API key',
+      error: error.message
+    });
+  }
+});
+
+// Serve socket.io.js for /wa1 (Apache ProxyPass removes /wa1 prefix)
+app.get('/socket.io/socket.io.js', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    const socketIoPath = path.join(__dirname, 'node_modules', 'socket.io', 'client-dist', 'socket.io.js');
+    const socketIoContent = fs.readFileSync(socketIoPath, 'utf8');
+
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(socketIoContent);
+  } catch (error) {
+    console.error('Error serving socket.io.js:', error);
+    res.status(404).send('Socket.IO client not found');
+  }
+});
+
+// Use wa1Router for /wa1 path
+app.use('/wa1', wa1Router);
+
+app.use('/', wa1Router);
+
+// WhatsApp Client Setup - Konfigurasi Stabil untuk Node.js v18
+const client = new Client({
+  authStrategy: new LocalAuth({
+    clientId: "wa-socket-v1"
+  }),
+  puppeteer: {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
+  },
+  // Let library auto-detect best WhatsApp Web version
+  // webVersionCache: {
+  //   type: 'remote',
+  //   remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.0.html'
+  // },
+  authTimeoutMs: 180000, // Increased from 120000
+  qrMaxRetries: 5
+});
+
+// Socket.IO Setup
+const io = new Server(server, {
+  path: '/socket.io/',
+  cors: {
+    origin: [
+      'https://admin-chat.genio.id',
+      'https://v2chat.genio.id',
+      'https://waserverlive.genio.id',
+      'https://103.102.153.200:4003',
+      'http://103.102.153.200:4003',
+      'https://chatvolution.my.id',
+      'http://chatvolution.my.id',
+      'http://localhost:8000',
+      'http://127.0.0.1:8000'
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// WhatsApp Event Handlers
+client.on('qr', (qr) => {
+  //('QR Code received');
+  qrcodeTerminal.generate(qr, { small: true });
+
+  qrcode.toDataURL(qr, (err, url) => {
+    if (err) {
+      console.error('Error generating QR code:', err);
+      return;
+    }
+    io.emit('qr', { image: url, message: "Scan QR code to connect" });
+  });
+});
+
+client.on('ready', async () => {
+  readyFired = true; // Mark that ready event fired
+  console.log('🎉 ========================================');
+  console.log('🎉 READY EVENT FIRED!');
+  console.log('🎉 ========================================');
+
+  try {
+    console.log('✅ WhatsApp client is ready!');
+
+    // Set User-Agent untuk menyamarkan browser automation
+    try {
+      const page = client.pupPage;
+      if (page) {
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        );
+        console.log('✅ User-Agent berhasil diatur');
+
+        // PATCH: Fix for "TypeError: Cannot read properties of undefined (reading 'markedUnread')"
+        // This error happens when WWebJS tries to mark chat as read but fails due to internal changes in WhatsApp Web
+        try {
+          await page.evaluate(() => {
+            if (window.WWebJS) {
+              window.WWebJS.sendSeen = async function() {
+                return true;
+              };
+              console.log('✅ WWebJS.sendSeen patched to no-op to prevent markedUnread error');
+            }
+          });
+          console.log('✅ Applied sendSeen patch');
+        } catch (patchError) {
+          console.error('❌ Error applying sendSeen patch:', patchError);
+        }
+
+        // PATCH: Fix for "TypeError: Cannot read properties of undefined (reading 'addAnnotations')"
+        // This error happens during media download when WhatsApp Web's internal media decryption tries to use addAnnotations
+        try {
+          await page.evaluate(() => {
+            // Patch the media download to handle missing addAnnotations
+            const originalDownload = window.Store?.DownloadManager?.downloadAndMaybeDecrypt;
+            if (originalDownload) {
+              window.Store.DownloadManager.downloadAndMaybeDecrypt = async function(...args) {
+                try {
+                  // Ensure addAnnotations exists as a no-op function
+                  const mediaObject = args[0];
+                  if (mediaObject && !mediaObject.addAnnotations) {
+                    mediaObject.addAnnotations = () => {};
+                  }
+                  return await originalDownload.apply(this, args);
+                } catch (error) {
+                  // If still fails, try without addAnnotations
+                  console.error('Media download error, attempting fallback', error);
+                  const mediaObject = args[0];
+                  if (mediaObject) {
+                    // Ensure addAnnotations exists
+                    if (!mediaObject.addAnnotations) {
+                      mediaObject.addAnnotations = () => {};
+                    }
+                  }
+                  throw error;
+                }
+              };
+              console.log('✅ Patched downloadAndMaybeDecrypt to handle addAnnotations');
+            }
+          });
+          console.log('✅ Applied media download patch');
+        } catch (mediaPatchError) {
+          console.error('❌ Error applying media download patch:', mediaPatchError);
+        }
+      } else {
+        console.warn('⚠️ pupPage not available, skipping patches');
+      }
+    } catch (error) {
+      console.error('❌ Error setting User-Agent:', error);
+    }
+
+    // Display connection information
+    try {
+      const info = client.info;
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📱 WhatsApp Connection Details:');
+      console.log('   Phone Number:', info.wid.user);
+      console.log('   Platform:', info.platform);
+      console.log('   WhatsApp Version:', info.wid._serialized);
+      console.log('   Device Name:', info.pushname || 'N/A');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } catch (infoError) {
+      console.log('⚠️ Could not retrieve connection info:', infoError.message);
+    }
+
+    console.log('✅ Ready event handler completed successfully');
+    io.emit('status', { status: 'connected', message: 'WhatsApp connected successfully' });
+  } catch (criticalError) {
+    console.error('❌ CRITICAL ERROR in ready event handler:', criticalError);
+    // Still emit connected status even if there's an error
+    io.emit('status', { status: 'connected', message: 'WhatsApp connected (with warnings)' });
+  }
+});
+
+let readyFired = false;
+let authenticatedCount = 0;
+
+client.on('authenticated', async () => {
+  authenticatedCount++;
+  console.log(`✅ WhatsApp authenticated (count: ${authenticatedCount})`);
+
+  // Only proceed on first authentication
+  if (authenticatedCount > 1) {
+    console.log('⚠️ Duplicate authentication event, skipping workaround');
+    return;
+  }
+
+  // Wait 10 seconds to see if ready event fires
+  setTimeout(async () => {
+    if (!readyFired) {
+      console.log('⚠️ ========================================');
+      console.log('⚠️ READY EVENT DID NOT FIRE!');
+      console.log('⚠️ Attempting manual initialization...');
+      console.log('⚠️ ========================================');
+
+      try {
+        // Try to apply patches manually
+        const page = client.pupPage;
+        if (page) {
+          console.log('✅ Puppeteer page available, applying patches...');
+
+          // Apply sendSeen patch
+          try {
+            await page.evaluate(() => {
+              if (window.WWebJS) {
+                window.WWebJS.sendSeen = async function() {
+                  return true;
+                };
+              }
+            });
+            console.log('✅ Applied sendSeen patch (manual)');
+          } catch (e) {
+            console.error('❌ Failed to apply sendSeen patch:', e.message);
+          }
+
+          // Apply media download patch
+          try {
+            await page.evaluate(() => {
+              const originalDownload = window.Store?.DownloadManager?.downloadAndMaybeDecrypt;
+              if (originalDownload) {
+                window.Store.DownloadManager.downloadAndMaybeDecrypt = async function(...args) {
+                  const mediaObject = args[0];
+                  if (mediaObject && !mediaObject.addAnnotations) {
+                    mediaObject.addAnnotations = () => {};
+                  }
+                  return await originalDownload.apply(this, args);
+                };
+              }
+            });
+            console.log('✅ Applied media download patch (manual)');
+          } catch (e) {
+            console.error('❌ Failed to apply media patch:', e.message);
+          }
+        }
+
+        // Check if client info is available
+        if (client.info) {
+          console.log('✅ Client info available:');
+          console.log('   Phone:', client.info.wid?.user || 'N/A');
+          console.log('   Platform:', client.info.platform || 'N/A');
+        } else {
+          console.log('⚠️ Client info not available yet');
+        }
+
+        // Check client state
+        try {
+          const state = await client.getState();
+          console.log('📱 Client state:', state);
+
+          if (state === 'CONNECTED') {
+            console.log('✅ Client is CONNECTED - should be able to receive messages');
+          } else {
+            console.log(`⚠️ Client state is ${state} - may not receive messages yet`);
+          }
+        } catch (stateError) {
+          console.log('⚠️ Could not get client state:', stateError.message);
+        }
+
+        // Verify message event listener is registered
+        const listenerCount = client.listenerCount('message');
+        console.log(`📨 Message event listeners registered: ${listenerCount}`);
+
+        if (listenerCount === 0) {
+          console.log('❌ WARNING: No message listeners registered! Messages will not be received.');
+        } else {
+          console.log('✅ Message listeners are registered and should work');
+        }
+
+        // CRITICAL: Wait for WhatsApp Web internal objects to fully load
+        // This is necessary for fresh QR scans where ready event doesn't fire
+        console.log('🧪 Waiting for WhatsApp Web internal objects to initialize...');
+        console.log('⏳ This may take 10-60 seconds for fresh QR scans, please wait...');
+
+        let pollAttempts = 0;
+        const maxPollAttempts = 60; // 60 seconds max for fresh scans
+
+        const pollForWhatsAppReady = async () => {
+          try {
+            const page = client.pupPage;
+            if (!page) {
+              return false;
+            }
+
+            // Check if WhatsApp Web internal objects are ready
+            const result = await page.evaluate(() => {
+              const storeReady = window.Store && window.Store.Msg && window.Store.Chat;
+              const wwebjsReady = window.WWebJS;
+              return {
+                store: !!storeReady,
+                wweb: !!wwebjsReady,
+                ready: !!(storeReady && wwebjsReady)
+              };
+            });
+
+            if (result.ready) {
+              console.log('✅ All WhatsApp Web objects are ready!');
+              return true;
+            }
+
+            pollAttempts++;
+            if (pollAttempts < maxPollAttempts) {
+              if (pollAttempts % 5 === 0) { // Log every 5 seconds
+                console.log(`⏳ Still waiting... (${pollAttempts}s/${maxPollAttempts}s) - Store: ${result.store}, WWeb: ${result.wweb}`);
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              return await pollForWhatsAppReady();
+            } else {
+              console.log('❌ Timeout waiting for WhatsApp Web objects after 60 seconds');
+              console.log('⚠️ This usually happens on fresh QR scans');
+              console.log('💡 TIP: Try logout from phone and reconnect - that works better!');
+              return false;
+            }
+          } catch (error) {
+            console.error('❌ Error polling:', error.message);
+            return false;
+          }
+        };
+
+        const isFullyReady = await pollForWhatsAppReady();
+
+        if (isFullyReady) {
+          console.log('🎉 ========================================');
+          console.log('🎉 WhatsApp Web FULLY INITIALIZED!');
+          console.log('🎉 ========================================');
+
+          // Mark ready as fired
+          readyFired = true;
+
+          // Emit connected status
+          io.emit('status', { status: 'connected', message: 'WhatsApp connected successfully' });
+
+          console.log('✅ Client is ready to receive messages!');
+
+          // CRITICAL: Force trigger message processing to verify it works
+          try {
+            console.log('🔍 Checking for unread messages to verify message handler...');
+            const chats = await client.getChats();
+            let hasUnread = false;
+
+            for (const chat of chats.slice(0, 5)) { // Check first 5 chats only
+              if (chat.unreadCount && chat.unreadCount > 0) {
+                console.log(`📬 Found ${chat.unreadCount} unread in chat: ${chat.name || chat.id._serialized}`);
+                hasUnread = true;
+              }
+            }
+
+            if (hasUnread) {
+              console.log('✅ Unread messages detected - message handler should be working');
+            } else {
+              console.log('ℹ️ No unread messages found');
+            }
+          } catch (checkError) {
+            console.error('⚠️ Could not check unread messages:', checkError.message);
+          }
+
+          console.log('📝 Send a test message to 6282130697168');
+          console.log('📝 You should see: 🔔 MESSAGE EVENT TRIGGERED!');
+        } else {
+          console.log('⚠️ WhatsApp Web objects not fully ready');
+          console.log('⚠️ Messages may not be received');
+          console.log('💡 RECOMMENDED: Logout from phone, then reconnect - ready event will fire properly');
+
+          io.emit('status', { status: 'connected', message: 'WhatsApp connected (partial)' });
+        }
+
+        console.log('✅ Manual initialization completed');
+      } catch (error) {
+        console.error('❌ Manual initialization failed:', error);
+      }
+    }
+  }, 10000); // Wait 10 seconds
+});
+
+client.on('remote_session_saved', () => {
+  console.log('💾 Remote session saved - this might mean ready event won\'t fire');
+  console.log('🔄 Attempting to get client info anyway...');
+
+  // Sometimes ready doesn't fire but we can still use the client
+  setTimeout(() => {
+    try {
+      const state = client.pupPage ? 'page exists' : 'no page';
+      console.log('📱 Puppeteer page status:', state);
+
+      if (client.info) {
+        console.log('✅ Client info available despite no ready event!');
+        console.log('📞 Phone:', client.info.wid?.user || 'N/A');
+        io.emit('status', { status: 'connected', message: 'WhatsApp connected (via session)' });
+      } else {
+        console.log('⚠️ Client info not yet available');
+      }
+    } catch (e) {
+      console.error('❌ Error checking client status:', e.message);
+    }
+  }, 3000);
+});
+
+client.on('loading_screen', (percent, message) => {
+  console.log(`⏳ Loading screen: ${percent}% - ${message}`);
+
+  // If stuck at 100%, log warning
+  if (percent === 100) {
+    setTimeout(() => {
+      console.log('⚠️ Loading reached 100% but ready not fired yet - waiting...');
+    }, 5000);
+  }
+});
+
+client.on('change_state', (state) => {
+  console.log(`🔄 WhatsApp state changed to: ${state}`);
+});
+
+// Add error handler
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection in WhatsApp client:', reason);
+});
+
+client.on('disconnected', (reason) => {
+  console.log('⚠️ WhatsApp disconnected:', reason);
+  io.emit('status', { status: 'disconnected', message: 'WhatsApp disconnected' });
+});
+
+// Initialize global messages array for ALL messages (incoming + outgoing)
+global.allMessages = [];
+
+// Initialize deduplication tracking
+global.processedRequests = new Set();
+global.sentMessages = new Set();
+// Track phones currently being processed by AI to prevent double replies
+global.aiInProgressPhones = new Set();
+global.aiProcessingStartTime = new Map(); // Track when AI processing started
+global.lastAiResponseTime = new Map(); // Track when last AI response was sent
+
+// Function to get real phone number from LID using WhatsApp Web.js API
+const getPhoneFromLid = async (lid) => {
+  try {
+    if (!lid || !lid.includes('@lid')) {
+      return null;
+    }
+
+    // Extract LID from format like "54047952379967@lid"
+    const lidId = lid.replace('@lid', '');
+
+    // Use getContactLidAndPhone to get real phone number
+    const contactInfo = await client.getContactLidAndPhone([lid]);
+
+    if (contactInfo && contactInfo.length > 0 && contactInfo[0].pn) {
+      const realPhone = contactInfo[0].pn;
+      console.log('📱 Got real phone from LID:', lid, '->', realPhone);
+      return realPhone;
+    }
+
+    console.warn('⚠️ Could not get phone number from LID:', lid);
+    return null;
+  } catch (error) {
+    console.error('❌ Error getting phone from LID:', error);
+    return null;
+  }
+};
+
+// Function to normalize phone number - handles @c.us, @lib, @lid, @g.us, and other formats
+// IMPORTANT: Do NOT normalize LID directly - it will create invalid random numbers
+// LID must be converted to real phone using getContactLidAndPhone() first
+const normalizePhoneNumber = (phoneInput, isLid = false) => {
+  if (!phoneInput || phoneInput === 'me') {
+    return 'me';
+  }
+
+  // If this is a LID format, DO NOT normalize it - return special format
+  if (isLid || phoneInput.toString().includes('@lid')) {
+    console.warn('⚠️ Attempted to normalize LID directly - this will create invalid numbers. Use getPhoneFromLid() first.');
+    // Return LID in special format to prevent accidental normalization
+    const lidOnly = phoneInput.toString().replace('@lid', '');
+    return `lid:${lidOnly}`;
+  }
+
+  // Remove all WhatsApp suffixes (@c.us, @lib, @g.us, @newsletter, @broadcast, etc.)
+  // BUT NOT @lid - that should be handled separately
+  let phone = phoneInput.toString();
+
+  // Remove common WhatsApp suffixes (but not @lid)
+  if (!phone.includes('@lid')) {
+    phone = phone.replace(/@[a-z0-9.]+$/i, '');
+  } else {
+    // If contains @lid, don't normalize
+    const lidOnly = phone.replace('@lid', '');
+    return `lid:${lidOnly}`;
+  }
+
+  // Extract only digits
+  const digitsOnly = phone.replace(/\D/g, '');
+
+  if (!digitsOnly) {
+    console.warn('⚠️ No digits found in phone number:', phoneInput);
+    return phoneInput; // Return original if no digits found
+  }
+
+  // Normalize to format 62 (Indonesian country code)
+  let normalized = digitsOnly;
+
+  // If starts with 62, keep it (but validate length)
+  if (normalized.startsWith('62')) {
+    // Indonesian phone numbers with 62 prefix should be 11-14 digits total
+    // (62 + 9-12 digits for the actual number)
+    if (normalized.length >= 11 && normalized.length <= 14) {
+      return normalized;
+    } else {
+      // console.warn('⚠️ Phone number with 62 prefix has unusual length:', normalized, 'from original:', phoneInput);
+      // If length is too long (like from LID normalization), return as-is to prevent invalid numbers
+      if (normalized.length > 14) {
+        // console.error('❌ Invalid phone number length (likely from LID):', normalized, '- returning as-is to prevent errors');
+        return phoneInput; // Return original to prevent invalid normalization
+      }
+      return normalized;
+    }
+  }
+
+  // If starts with 0, replace with 62
+  if (normalized.startsWith('0')) {
+    const withoutZero = normalized.slice(1);
+    // Indonesian numbers without 0 should be 9-12 digits
+    if (withoutZero.length >= 9 && withoutZero.length <= 12) {
+      return '62' + withoutZero;
+    } else {
+      // console.warn('⚠️ Phone number starting with 0 has unusual length:', normalized, 'from original:', phoneInput);
+      return '62' + withoutZero; // Still normalize but log warning
+    }
+  }
+
+  // If doesn't start with 62 or 0, check if it's a valid length for Indonesian number
+  // Indonesian numbers are typically 9-12 digits (without country code)
+  if (normalized.length >= 9 && normalized.length <= 12) {
+    return '62' + normalized;
+  }
+
+  // If length is unusual (likely LID), DO NOT normalize - return original
+  if (normalized.length > 12) {
+    // console.error('❌ Invalid phone number length (likely LID):', normalized, 'from original:', phoneInput, '- NOT normalizing to prevent invalid numbers');
+    return phoneInput; // Return original to prevent creating invalid numbers
+  }
+
+  // If length is unusual but shorter, log warning but still normalize
+  if (normalized.length > 0 && normalized.length < 9) {
+    // console.warn('⚠️ Phone number has unusual format:', normalized, 'from original:', phoneInput, '- normalizing anyway');
+    return '62' + normalized;
+  }
+
+  return normalized;
+};
+
+// Function to save message to database
+const saveMessageToDatabase = async (messageData) => {
+  try {
+    // ('💾 Attempting to save message to database:', {
+    //   message_id: messageData.id,
+    //   from: messageData.from,
+    //   body: messageData.body?.substring(0, 50) + '...',
+    //   direction: messageData.from === 'me' ? 'outgoing' : 'incoming'
+    // });
+
+    // Use real phone if available (from LID), otherwise use normalized
+    // If LID without phone, use special format to prevent invalid normalization
+    let phone = null;
+
+    if (messageData.from_real_phone) {
+      // We have real phone from LID - use it
+      phone = normalizePhoneNumber(messageData.from_real_phone);
+    } else if (messageData.is_lid_without_phone) {
+      // LID without phone - use LID format (lid:xxxxx) to prevent invalid normalization
+      phone = messageData.from_normalized; // This should be "lid:xxxxx" format
+      console.log('💾 Saving LID without phone to database:', phone);
+    } else {
+      // Normal phone number
+      phone = messageData.from_normalized || normalizePhoneNumber(messageData.from);
+    }
+
+    // If still null or invalid, use original
+    if (!phone || phone === 'me') {
+      phone = messageData.from;
+    }
+
+    // Check if chat is assigned - get assigned_to from existing messages
+    let assignedTo = null;
+    let chatStatus = 'open'; // Default to open
+    let isRatingMessage = false;
+    let isPending = false; // Default to false
+
+    // Skip phone variant checks if this is LID without phone
+    if (phone !== 'me' && !phone.startsWith('lid:')) {
+      const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+      const raw = digitsOnly(phone);
+      const variants = new Set();
+      if (raw) {
+        variants.add(raw);
+        if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+        if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+        if (!raw.startsWith('62')) variants.add('62' + raw);
+      }
+
+      const phoneVariants = Array.from(variants);
+
+      // Check if message is a rating (1-5) - only single digit 1, 2, 3, 4, or 5
+      const messageBody = (messageData.body || '').trim();
+      isRatingMessage = /^[1-5]$/.test(messageBody);
+
+      // Check if chat has closed messages (chat was previously closed)
+      const hasClosedMessages = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'closed' },
+            { instance: 'wa1' }
+          ]
+        },
+        attributes: ['id'],
+        limit: 1
+      });
+
+      // If message is rating (1-5) AND chat has closed messages, keep it closed
+      if (isRatingMessage && hasClosedMessages) {
+        chatStatus = 'closed';
+        //('⭐ Rating message detected (1-5) for closed chat - keeping chat closed for phone:', phone);
+      }
+
+      // Check if any existing message for this phone has assigned_to (only for open chats)
+      const existingAssignedMessage = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'open' },
+            { assigned_to: { [Op.ne]: null } }
+          ]
+        },
+        attributes: ['assigned_to'],
+        order: [['received_at', 'DESC']],
+        limit: 1
+      });
+
+      if (existingAssignedMessage && existingAssignedMessage.assigned_to) {
+        // assigned_to can be comma-separated (multiple agents)
+        assignedTo = existingAssignedMessage.assigned_to;
+        //('👤 Inheriting assigned_to from existing message:', assignedTo, 'for phone:', phone);
+      }
+
+      // Check if chat is pending - if latest message has is_pending = 1, inherit it
+      const latestPendingMessage = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'open' },
+            { instance: 'wa1' }
+          ]
+        },
+        order: [['received_at', 'DESC'], ['id', 'DESC']],
+        attributes: ['is_pending'],
+        limit: 1
+      });
+
+      if (latestPendingMessage && latestPendingMessage.is_pending === true) {
+        isPending = true;
+        console.log('⏸️ Inheriting is_pending = true from latest message for phone:', phone);
+      }
+    }
+
+    // Extract rating value if it's a rating message
+    let ratingValue = null;
+    if (isRatingMessage) {
+      ratingValue = parseInt((messageData.body || '').trim(), 10);
+      //('⭐ Rating value extracted:', ratingValue, 'for phone:', phone);
+    }
+
+    // Prepare data for insert
+    // Use normalized version if available, otherwise normalize from original
+    const fromNumber = messageData.from_normalized || normalizePhoneNumber(messageData.from);
+    const toNumber = messageData.to ? normalizePhoneNumber(messageData.to) : null;
+
+    console.log('💾 Saving message to database:', {
+      original_from: messageData.from,
+      normalized_from: fromNumber,
+      original_to: messageData.to,
+      normalized_to: toNumber
+    });
+    const messageBody = messageData.body || null;
+
+    // Store file URL instead of base64 data for better performance
+    let mediaData = null;
+    if (messageData.media) {
+      // If media has url (saved to disk), store only URL info
+      if (messageData.media.url || messageData.file_url) {
+        mediaData = JSON.stringify({
+          url: messageData.media.url || messageData.file_url,
+          path: messageData.media.path || null,
+          mimetype: messageData.media.mimetype || null,
+          filename: messageData.media.filename || null,
+          type: messageData.media.type || null
+        });
+      } else {
+        // Fallback: store original media data (for backward compatibility)
+        mediaData = JSON.stringify(messageData.media);
+      }
+    }
+
+    const messageType = messageData.hasMedia ? 'image' : 'text';
+    const direction = messageData.from === 'me' ? 'outgoing' : 'incoming';
+    const timestamp = Math.floor(new Date(messageData.timestamp).getTime() / 1000);
+
+    // Convert received_at to MySQL datetime format (YYYY-MM-DD HH:MM:SS)
+    let receivedAt = messageData.receivedAt || new Date().toISOString();
+    // Convert ISO string to MySQL datetime format
+    if (receivedAt.includes('T')) {
+      const dateObj = new Date(receivedAt);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+      receivedAt = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    const agentId = messageData.agentId || null;
+    const chatSessionId = messageData.chatSessionId || null;
+    const isRead = messageData.from === 'me' ? 1 : 0;
+
+    // Use raw SQL INSERT query (like phpMyAdmin) to ensure rating is inserted
+    if (isRatingMessage && ratingValue) {
+      // Insert with rating using raw SQL
+      // Include createdAt and updatedAt (required by Sequelize timestamps)
+      const insertSql = `
+        INSERT INTO whatsapp_messages (
+          message_id, from_number, to_number, body, rating, media_data,
+          message_type, direction, timestamp, received_at, agent_id,
+          chat_session_id, status, is_read, chat_status, is_pending, assigned_to, instance,
+          createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      // Use receivedAt for createdAt and updatedAt (same timestamp)
+      const insertValues = [
+        messageData.id,
+        fromNumber,
+        toNumber,
+        messageBody,
+        ratingValue, // Rating value (1-5)
+        mediaData,
+        messageType,
+        direction,
+        timestamp,
+        receivedAt,
+        agentId,
+        chatSessionId,
+        'sent',
+        isRead,
+        chatStatus,
+        isPending ? 1 : 0, // is_pending (1 if true, 0 if false)
+        assignedTo,
+        'wa1',
+        receivedAt, // createdAt
+        receivedAt  // updatedAt
+      ];
+
+      try {
+        const [iynsertResult] = await db.query(insertSql, {
+          replacements: insertValues
+        });
+        //('✅ Message with rating saved using raw SQL, ID:', insertResult.insertId || 'N/A', 'Rating:', ratingValue);
+      } catch (sqlError) {
+        console.error('❌ Error inserting with raw SQL, falling back to Sequelize:', sqlError);
+        // Fallback to Sequelize if raw SQL fails
+        const savedMessage = await WhatsAppMessage.create({
+          message_id: messageData.id,
+          from_number: fromNumber,
+          to_number: toNumber,
+          body: messageBody,
+          rating: ratingValue,
+          media_data: messageData.media || null,
+          message_type: messageType,
+          direction: direction,
+          timestamp: timestamp,
+          received_at: receivedAt,
+          agent_id: agentId,
+          chat_session_id: chatSessionId,
+          status: 'sent',
+          is_read: messageData.from === 'me' ? true : false,
+          chat_status: chatStatus,
+          is_pending: isPending,
+          assigned_to: assignedTo,
+          instance: 'wa1'
+        });
+        //('✅ Message saved using Sequelize fallback, ID:', savedMessage.id, 'Rating:', ratingValue);
+      }
+    } else {
+      // Normal insert without rating using Sequelize
+      const savedMessage = await WhatsAppMessage.create({
+        message_id: messageData.id,
+        from_number: fromNumber,
+        to_number: toNumber,
+        body: messageBody,
+        rating: null, // No rating
+        media_data: messageData.media || null,
+        message_type: messageType,
+        direction: direction,
+        timestamp: timestamp,
+        received_at: receivedAt,
+        agent_id: agentId,
+        chat_session_id: chatSessionId,
+        status: 'sent',
+        is_read: messageData.from === 'me' ? true : false,
+        chat_status: chatStatus,
+        is_pending: isPending,
+        assigned_to: assignedTo,
+        instance: 'wa1'
+      });
+      //('✅ Message saved to database with ID:', savedMessage.id, assignedTo ? `(assigned to ${assignedTo})` : '');
+    }
+  } catch (error) {
+    console.error('❌ Error saving message to database:', error);
+    console.error('❌ Message data:', messageData);
+  }
+};
+
+// Function to generate AI response
+const generateAIResponse = async (phone, userMessage) => {
+  try {
+    // Validate userMessage
+    if (!userMessage || typeof userMessage !== 'string' || userMessage.trim() === '') {
+      console.error('❌ Error: userMessage is empty or invalid:', userMessage);
+      return null;
+    }
+
+    // Get OpenAI API key from database
+    const apiKeyRecord = await ApiKey.findOne({
+      where: { service: 'openai', is_active: true }
+    });
+
+    if (!apiKeyRecord) {
+      console.error('❌ OpenAI API key not found');
+      return null;
+    }
+
+    //('🤖 Using OpenAI API key:', apiKeyRecord.api_key ? `${apiKeyRecord.api_key.substring(0, 20)}...` : 'Not found');
+    const apiKey = apiKeyRecord.api_key;
+
+    // Create or get thread for this phone number
+    let threadId = global.phoneThreads && global.phoneThreads[phone];
+
+    if (!threadId) {
+      //('🤖 Creating new thread for phone:', phone);
+
+      // Create thread using REST API
+      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!threadResponse.ok) {
+        const errorData = await threadResponse.json();
+        console.error('❌ Error creating thread:', errorData);
+        return null;
+      }
+
+      const threadData = await threadResponse.json();
+      threadId = threadData.id;
+      //('🤖 Thread created:', threadId);
+
+      if (!global.phoneThreads) {
+        global.phoneThreads = {};
+      }
+      global.phoneThreads[phone] = threadId;
+    } else {
+      //('🤖 Using existing thread for phone:', phone, 'threadId:', threadId);
+    }
+
+    // Add user message to thread using REST API
+    // Format content sesuai dengan OpenAI Assistants API v2: harus array dengan objek type dan text
+    const addMessageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: userMessage.trim()
+          }
+        ]
+      })
+    });
+
+    if (!addMessageResponse.ok) {
+      const errorData = await addMessageResponse.json();
+      console.error('❌ Error adding message to thread:', errorData);
+      return null;
+    }
+
+    // Create and run assistant using REST API
+    let run;
+    try {
+      const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          assistant_id: 'asst_4QVwsQkyg7uZcRXbuiLpZOY5'
+        })
+      });
+
+      if (!runResponse.ok) {
+        const errorData = await runResponse.json();
+        const status = runResponse.status;
+
+        if (status === 429) {
+          const retryAfter = runResponse.headers.get('retry-after') || 'unknown';
+          console.error('🚫 Rate limit hit! Retry after:', retryAfter, 'seconds');
+          console.error('📊 Rate limit error details:', errorData);
+          return { error: 'RATE_LIMIT', message: `Rate limit exceeded. Retry after ${retryAfter} seconds`, retryAfter: parseInt(retryAfter) || 60 };
+        }
+
+        if (status === 402 || status === 403) {
+          console.error('💳 Payment/quota error! Status:', status);
+          console.error('📊 Quota error details:', errorData);
+          return { error: 'QUOTA_ERROR', message: 'OpenAI quota exceeded or payment required', details: errorData };
+        }
+
+        console.error('❌ Error creating run:', errorData);
+        return { error: 'CREATE_RUN_ERROR', message: errorData.error?.message || 'Unknown error', details: errorData };
+      }
+
+      run = await runResponse.json();
+
+      if (!run || !run.id) {
+        console.error('❌ Failed to create run or run.id is undefined:', run);
+        return null;
+      }
+    } catch (runError) {
+      console.error('❌ Error creating run:', runError.message);
+      return { error: 'CREATE_RUN_ERROR', message: runError.message };
+    }
+
+    // Poll for completion
+    //('🤖 Polling run status, threadId:', threadId, 'runId:', run.id);
+
+    if (!threadId) {
+      console.error('❌ threadId is undefined!');
+      return null;
+    }
+    if (!run.id) {
+      console.error('❌ run.id is undefined!');
+      return null;
+    }
+
+    // Wait for completion with polling
+    let attempts = 0;
+    const maxAttempts = 30;
+    let runStatus;
+
+    while (attempts < maxAttempts) {
+      try {
+        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'OpenAI-Beta': 'assistants=v2'
+          }
+        });
+
+        if (!statusResponse.ok) {
+          console.error('❌ Error retrieving run status:', statusResponse.status);
+          return null;
+        }
+
+        runStatus = await statusResponse.json();
+        //(`🤖 Run status: ${runStatus.status} (attempt ${attempts + 1}/${maxAttempts})`);
+
+        if (runStatus.status === 'completed') {
+          break;
+        }
+
+        if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+          const errorDetails = runStatus.last_error ? {
+            code: runStatus.last_error.code,
+            message: runStatus.last_error.message
+          } : 'No error details available';
+          console.error('❌ Run failed or cancelled:', runStatus.status);
+          console.error('❌ Error details:', JSON.stringify(errorDetails, null, 2));
+          return null;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      } catch (error) {
+        console.error('❌ Error retrieving run status:', error.message);
+        return null;
+      }
+    }
+
+    if (runStatus && runStatus.status === 'completed') {
+      // Get the assistant's response using REST API
+      try {
+        const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'OpenAI-Beta': 'assistants=v2'
+          }
+        });
+
+        if (!messagesResponse.ok) {
+          console.error('❌ Error getting messages:', messagesResponse.status);
+          return null;
+        }
+
+        const messages = await messagesResponse.json();
+        const assistantMessages = messages.data.filter(msg => msg.role === 'assistant');
+
+        if (assistantMessages.length > 0) {
+          const latestMessage = assistantMessages[0];
+          // Return raw response without cleaning or trimming
+          const responseText = latestMessage.content[0].text.value;
+          //('🤖 AI Response (raw):', responseText);
+          return responseText;
+        }
+      } catch (error) {
+        console.error('❌ Error getting messages:', error.message);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error generating AI response:', error);
+    return null;
+  }
+};
+
+// Function to detect if message contains request for human CS/admin
+const detectHumanCSRequest = (message) => {
+  if (!message || typeof message !== 'string') return false;
+
+  const lowerMessage = message.toLowerCase();
+
+  // Keywords that indicate request for human CS/admin
+  const keywords = [
+    'cs manusia',
+    'customer service manusia',
+    'admin manusia',
+    'tim manusia',
+    'kontak cs manusia',
+    'kontak admin',
+    'hubungi cs manusia',
+    'hubungi admin',
+    'kasih tau admin',
+    'kasih tau ke admin',
+    'berkomunikasi dengan cs manusia',
+    'tunggu tim manusia',
+    'tunggu dr tim manusia',
+    'saya mau kontak cs manusia',
+    'saya mau hubungi cs manusia',
+    'saya mau berbicara dengan cs manusia',
+    'saya mau berbicara dengan admin',
+    'bisa berkomunikasi dengan cs manusia',
+    'bisa hubungi cs manusia',
+    'bisa kontak cs manusia'
+  ];
+
+  // Check if message contains any of the keywords
+  return keywords.some(keyword => lowerMessage.includes(keyword));
+};
+
+// Function to process incoming messages and generate AI response
+const processIncomingMessage = async (messageData) => {
+  try {
+    // Skip AI response if LID without phone number (can't send message to LID)
+    if (messageData.is_lid_without_phone) {
+      console.warn('⚠️ Skipping AI response for LID without phone number:', messageData.from);
+      // Clear AI in-progress flag
+      const lidOnly = messageData.from.replace('@lid', '');
+      global.aiInProgressPhones.delete(`lid:${lidOnly}`);
+      global.aiProcessingStartTime.delete(`lid:${lidOnly}`);
+      return;
+    }
+
+    // Use real phone if available (from LID), otherwise use normalized
+    const phone = messageData.from_real_phone
+      ? normalizePhoneNumber(messageData.from_real_phone)
+      : (messageData.from_normalized || normalizePhoneNumber(messageData.from));
+    const messageId = messageData.id;
+
+    // Skip if phone is LID format (shouldn't happen if is_lid_without_phone is set correctly)
+    if (phone && phone.startsWith('lid:')) {
+      console.warn('⚠️ Skipping AI response - phone is LID format:', phone);
+      return;
+    }
+
+    console.log('🤖 Processing AI response for phone:', {
+      original: messageData.from,
+      real_phone: messageData.from_real_phone || null,
+      normalized: phone
+    });
+
+    // Check if chat is assigned to an agent - if assigned, skip AI response
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Check if message is a rating (1-5) on a closed chat - skip AI response
+    const messageBody = (messageData.body || '').trim();
+    const isRatingMessage = /^[1-5]$/.test(messageBody);
+
+    if (isRatingMessage) {
+      // Check if chat has closed messages
+      const hasClosedMessages = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'closed' },
+            { instance: 'wa1' }
+          ]
+        },
+        attributes: ['id'],
+        limit: 1
+      });
+
+      if (hasClosedMessages) {
+        //('⭐ Rating message (1-5) detected on closed chat - skipping AI response for:', phone);
+        // Clear AI in-progress flag since we're not processing
+        global.aiInProgressPhones.delete(phone);
+        global.aiProcessingStartTime.delete(phone);
+        return;
+      }
+    }
+
+    // Check if chat is assigned - check if ANY message for this phone has assigned_to
+    // This check happens BEFORE message is saved, so we check existing messages
+    const assignedMessage = await WhatsAppMessage.findOne({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { from_number: { [Op.in]: phoneVariants } },
+              { to_number: { [Op.in]: phoneVariants } }
+            ]
+          },
+          { chat_status: 'open' },
+          { assigned_to: { [Op.ne]: null } } // Check if assigned_to is not null
+        ]
+      },
+      attributes: ['assigned_to'],
+      limit: 1
+    });
+
+    //('🔍 Checking assigned status for phone:', phone, 'variants:', phoneVariants);
+    //('🔍 Assigned message result:', assignedMessage ? `assigned to ${assignedMessage.assigned_to}` : 'not assigned');
+
+    if (assignedMessage && assignedMessage.assigned_to) {
+      // assigned_to can be comma-separated list (e.g., "18,19")
+      const assignedAgents = assignedMessage.assigned_to.split(',').map(a => a.trim()).filter(a => a);
+      //('🚫 Chat is assigned to agents', assignedAgents.join(', '), '- skipping AI response for:', phone);
+      // Clear AI in-progress flag since we're not processing
+      global.aiInProgressPhones.delete(phone);
+      global.aiProcessingStartTime.delete(phone);
+      return;
+    }
+
+    // Check if chat is pending - check if the LATEST message has is_pending = true
+    // This check happens BEFORE message is saved, so we check existing messages
+    const latestPendingMessage = await WhatsAppMessage.findOne({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { from_number: { [Op.in]: phoneVariants } },
+              { to_number: { [Op.in]: phoneVariants } }
+            ]
+          },
+          { chat_status: 'open' },
+          { is_pending: true },
+          { instance: 'wa1' }
+        ]
+      },
+      order: [['received_at', 'DESC'], ['id', 'DESC']], // Get the latest message
+      attributes: ['id', 'is_pending'],
+      limit: 1
+    });
+
+    if (latestPendingMessage && latestPendingMessage.is_pending === true) {
+      //('⏸️ Chat is pending (latest message has is_pending = true) - skipping AI response for:', phone);
+      // Clear AI in-progress flag since we're not processing
+      global.aiInProgressPhones.delete(phone);
+      global.aiProcessingStartTime.delete(phone);
+      return;
+    }
+
+    // Initialize global variables for tracking human CS requests
+    if (!global.humanCSRequestPhones) {
+      global.humanCSRequestPhones = new Set(); // Track phones that requested human CS
+    }
+    if (!global.humanCSRequestAnswered) {
+      global.humanCSRequestAnswered = new Set(); // Track phones that already got AI response for human CS request
+    }
+
+    // Check if current message contains request for human CS/admin
+    const isHumanCSRequest = detectHumanCSRequest(messageBody);
+
+    if (isHumanCSRequest) {
+      console.log('👤 Human CS request detected for phone:', phone);
+      global.humanCSRequestPhones.add(phone);
+
+      // Check if we already answered this request
+      if (global.humanCSRequestAnswered.has(phone)) {
+        console.log('🛑 Human CS request already answered - stopping AI response for:', phone);
+        // Clear AI in-progress flag since we're not processing
+        global.aiInProgressPhones.delete(phone);
+        global.aiProcessingStartTime.delete(phone);
+        return;
+      }
+      // If not answered yet, continue to generate AI response (will be answered once)
+    } else {
+      // If not a human CS request, check if this phone previously requested human CS
+      // If yes, stop AI response for all subsequent messages
+      if (global.humanCSRequestPhones.has(phone) && global.humanCSRequestAnswered.has(phone)) {
+        console.log('🛑 Phone previously requested human CS and was answered - stopping AI response for:', phone);
+        // Clear AI in-progress flag since we're not processing
+        global.aiInProgressPhones.delete(phone);
+        global.aiProcessingStartTime.delete(phone);
+        return;
+      }
+    }
+
+    // Create AI response fingerprint for deduplication
+    const aiFingerprint = `ai_${phone}_${messageId}`;
+
+    // Check if AI response was already processed for this message
+    if (global.processedAiResponses && global.processedAiResponses.has(aiFingerprint)) {
+      //('🚫 AI response already processed, skipping:', aiFingerprint);
+      return;
+    }
+
+    // Initialize processedAiResponses if not exists
+    if (!global.processedAiResponses) {
+      global.processedAiResponses = new Set();
+    }
+
+    // Add to processed AI responses
+    global.processedAiResponses.add(aiFingerprint);
+
+    // Cleanup old AI responses (keep last 100)
+    if (global.processedAiResponses.size > 100) {
+      const responsesArray = Array.from(global.processedAiResponses);
+      global.processedAiResponses.clear();
+      responsesArray.slice(-50).forEach(resp => global.processedAiResponses.add(resp));
+    }
+
+    //('✅ Processing AI response for incoming message:', aiFingerprint);
+    // Flag already set in message handler to prevent race conditions
+
+    // Validate message body before generating AI response
+    const messageBodyForAI = (messageData.body || '').trim();
+    if (!messageBodyForAI || messageBodyForAI === '') {
+      console.log('⚠️ Skipping AI response: message body is empty for phone:', phone);
+      // Clear AI in-progress flag since we're not processing
+      global.aiInProgressPhones.delete(phone);
+      global.aiProcessingStartTime.delete(phone);
+      return;
+    }
+
+    // Generate AI response
+    try {
+      const aiResponse = await generateAIResponse(phone, messageBodyForAI);
+
+      if (aiResponse && typeof aiResponse === 'string' && aiResponse.trim()) {
+        //('🤖 AI Response generated (raw):', aiResponse.substring(0, 100) + '...');
+
+        // Use raw response without any cleaning or trimming
+        const responseText = aiResponse;
+
+        // Send AI response via WhatsApp
+        // Use original from format (may be @lid or @c.us) for sending message
+        // WhatsApp Web.js needs the original format to send message
+        let chatId = messageData.from;
+
+        // If we have real phone from LID, try to construct proper chatId
+        // But keep original format as fallback since WhatsApp might need it
+        if (messageData.from_real_phone && messageData.from.includes('@lid')) {
+          // Try using real phone with @c.us format
+          const realPhoneNormalized = normalizePhoneNumber(messageData.from_real_phone);
+          chatId = `${realPhoneNormalized}@c.us`;
+          console.log('📤 Using real phone for sending message:', messageData.from, '->', chatId);
+        } else {
+          // Use original format
+          chatId = messageData.from;
+        }
+
+        const result = await client.sendMessage(chatId, responseText);
+
+        //('📤 Sending message to:', chatId, 'Message:', responseText.substring(0, 50) + '...');
+        //('✅ Message sent successfully:', result.id._serialized);
+
+        // If this was a human CS request, mark it as answered
+        if (isHumanCSRequest) {
+          global.humanCSRequestAnswered.add(phone);
+          console.log('✅ Human CS request answered - AI will stop responding for:', phone);
+        }
+
+        // Clear AI in-progress flag after successful send with delay to prevent race conditions
+        setTimeout(() => {
+          try {
+            //('🧹 About to clear AI flag for:', phone);
+            global.aiInProgressPhones.delete(phone);
+            global.aiProcessingStartTime.delete(phone);
+            global.lastAiResponseTime.set(phone, Date.now()); // Record AI response time
+            //('✅ Cleared AI in-progress flag after successful send:', phone);
+            //('🔓 Remaining AI in-progress phones:', Array.from(global.aiInProgressPhones));
+          } catch (error) {
+            //('❌ Error clearing AI flag:', error);
+          }
+        }, 5000); // 5 second delay
+
+        // Store sent message in database
+        try {
+          // Use real phone if available, otherwise use normalized chatId
+          const toNumberForDb = messageData.from_real_phone
+            ? normalizePhoneNumber(messageData.from_real_phone)
+            : normalizePhoneNumber(chatId);
+
+          await WhatsAppMessage.create({
+            message_id: result.id._serialized,
+            from_number: 'me',
+            to_number: toNumberForDb,
+            body: responseText,
+            message_type: 'text',
+            direction: 'outgoing',
+            timestamp: Math.floor(Date.now() / 1000),
+            received_at: new Date().toISOString(),
+            status: 'sent',
+            agent_id: 'ai-assistant',
+            is_read: true, // AI responses are considered read
+            chat_status: 'open', // New messages are open by default
+            instance: 'wa1' // Set instance to wa1 for wa-socket-v1
+          });
+          //('💾 Sent message saved to database');
+        } catch (dbError) {
+          console.error('❌ Error saving sent message to database:', dbError);
+        }
+
+        // Add to global messages
+        // Use real phone if available for consistency
+        const toForGlobal = messageData.from_real_phone
+          ? `${normalizePhoneNumber(messageData.from_real_phone)}@c.us`
+          : chatId;
+
+        const sentMessageData = {
+          id: result.id._serialized,
+          from: 'me',
+          to: toForGlobal,
+          body: responseText,
+          timestamp: Math.floor(Date.now() / 1000), // Use current timestamp in seconds
+          hasMedia: false,
+          receivedAt: new Date().toISOString(),
+          type: 'sent'
+        };
+
+        global.allMessages.push(sentMessageData);
+        //('📝 Added sent message to global.allMessages');
+
+        // Emit to socket clients
+        io.emit('message', sentMessageData);
+
+        // Also emit as AI response event for proper chat list update
+        // Use real phone if available for frontend display
+        const phoneForEmit = messageData.from_real_phone
+          ? normalizePhoneNumber(messageData.from_real_phone)
+          : normalizePhoneNumber(chatId);
+
+        io.emit('aiResponse', {
+          phone: phoneForEmit,
+          message: sentMessageData,
+          chatId: chatId
+        });
+      } else {
+        // No AI response generated, clear flag with delay
+        setTimeout(() => {
+          try {
+            global.aiInProgressPhones.delete(phone);
+            global.aiProcessingStartTime.delete(phone);
+            global.lastAiResponseTime.set(phone, Date.now()); // Record time even for no response
+            //('✅ Cleared AI in-progress flag (no response):', phone);
+            //('🔓 Remaining AI in-progress phones:', Array.from(global.aiInProgressPhones));
+          } catch (_) { }
+        }, 5000); // 5 second delay
+        //('⚠️ No AI response generated for:', phone);
+      }
+    } catch (aiError) {
+      console.error('❌ Error generating AI response:', aiError);
+      // Clear flag on error with delay
+      setTimeout(() => {
+        try {
+          global.aiInProgressPhones.delete(phone);
+          global.aiProcessingStartTime.delete(phone);
+          global.lastAiResponseTime.set(phone, Date.now()); // Record time even for error
+          //('✅ Cleared AI in-progress flag (error):', phone);
+          //('🔓 Remaining AI in-progress phones:', Array.from(global.aiInProgressPhones));
+        } catch (_) { }
+      }, 5000); // 5 second delay
+    }
+
+  } catch (error) {
+    console.error('❌ Error processing incoming message:', error);
+    // Clear flag on main error with delay
+    setTimeout(() => {
+      try {
+        const phone = normalizePhoneNumber(messageData.from);
+        global.aiInProgressPhones.delete(phone);
+        global.aiProcessingStartTime.delete(phone);
+        global.lastAiResponseTime.set(phone, Date.now()); // Record time even for main error
+        //('✅ Cleared AI in-progress flag (main error):', phone);
+        //('🔓 Remaining AI in-progress phones:', Array.from(global.aiInProgressPhones));
+      } catch (_) { }
+    }, 5000); // 5 second delay
+  } finally {
+    // Don't clear flag here - let it be cleared only when AI response is actually sent
+    const phone = normalizePhoneNumber(messageData.from);
+    //('🔄 AI processing completed for:', phone, '- keeping flag until response sent');
+  }
+};
+
+// Function to get active WhatsApp accounts
+const getActiveWhatsAppAccounts = async () => {
+  try {
+    const accounts = await ChatChannelAccount.findAll({
+      where: {
+        chat_channel_id: 2, // WhatsApp channel ID
+        status: 1 // Active status
+      }
+    });
+    return accounts;
+  } catch (error) {
+    console.error('❌ Error getting WhatsApp accounts:', error);
+    return [];
+  }
+};
+
+// Function to clean up WhatsApp auth folder
+const cleanupAuthFolder = () => {
+  try {
+    const authPath = path.join(__dirname, '.wwebjs_auth');
+
+    if (fs.existsSync(authPath)) {
+      //('🧹 Cleaning up WhatsApp auth folder...');
+
+      // Remove the entire .wwebjs_auth directory
+      fs.rmSync(authPath, { recursive: true, force: true });
+
+      //('✅ WhatsApp auth folder cleaned successfully');
+      return true;
+    } else {
+      //('ℹ️ No auth folder found to clean');
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Error cleaning up auth folder:', error);
+    return false;
+  }
+};
+
+console.log('📨 Registering message event handler...');
+client.on('message', async (message) => {
+  console.log('🔔 MESSAGE EVENT TRIGGERED!');
+  try {
+    // Log raw message for debugging
+    console.log('📨 Raw message received:', {
+      from: message.from,
+      body: message.body?.substring(0, 50),
+      hasMedia: message.hasMedia
+    });
+
+    // Filter out newsletter and broadcast messages
+    if (message.from.includes('@newsletter') || message.from.includes('@broadcast')) {
+      //('🚫 Newsletter/Broadcast message filtered out:', message.from);
+      return;
+    }
+
+    // Check if message is from LID format and get real phone number
+    let realPhone = null;
+    let normalizedFrom = null;
+    let isLidWithoutPhone = false;
+
+    if (message.from.includes('@lid')) {
+      console.log('🔍 Detected LID format, getting real phone number...');
+      realPhone = await getPhoneFromLid(message.from);
+
+      if (realPhone) {
+        // Normalize the real phone number (NOT the LID)
+        normalizedFrom = normalizePhoneNumber(realPhone);
+        console.log('✅ Got real phone from LID:', message.from, '->', realPhone, '-> normalized:', normalizedFrom);
+      } else {
+        // If can't get real phone, DO NOT normalize LID (will create invalid random numbers)
+        // Store LID in special format to prevent accidental normalization
+        const lidOnly = message.from.replace('@lid', '');
+        normalizedFrom = `lid:${lidOnly}`;
+        isLidWithoutPhone = true;
+        console.warn('⚠️ Could not get real phone from LID:', message.from, '- storing as LID format (will skip AI response)');
+      }
+    } else {
+      // Normal phone number format (@c.us, etc.)
+      normalizedFrom = normalizePhoneNumber(message.from);
+      console.log('📞 Phone normalization:', message.from, '->', normalizedFrom);
+    }
+
+    const data = {
+      id: message.id._serialized,
+      from: message.from, // Keep original for reference
+      from_normalized: normalizedFrom, // Add normalized version (or LID format if no phone)
+      from_real_phone: realPhone || null, // Add real phone if from LID
+      is_lid_without_phone: isLidWithoutPhone, // Flag to indicate LID without phone number
+      body: message.body,
+      timestamp: message.timestamp,
+      hasMedia: message.hasMedia,
+      receivedAt: new Date().toISOString()
+    };
+
+    if (message.hasMedia) {
+      try {
+        const media = await message.downloadMedia();
+
+        // Save file to disk instead of keeping base64 in memory
+        const fileInfo = await saveMediaToDisk(media, message.from);
+
+        // Store file info instead of base64 data
+        data.media = {
+          mimetype: fileInfo.mimetype,
+          filename: fileInfo.name,
+          url: fileInfo.url,
+          path: fileInfo.path,
+          type: fileInfo.type
+        };
+        data.file_url = fileInfo.url; // For compatibility with frontend
+      } catch (mediaError) {
+        console.error('❌ Error processing media:', mediaError);
+        // Fallback: keep original media data if save fails
+        const media = await message.downloadMedia();
+        data.media = media;
+      }
+    }
+
+    // ('📝 Processed message data:', {
+    //   id: data.id,
+    //   from: data.from,
+    //   body: data.body?.substring(0, 50),
+    //   direction: 'incoming'
+    // });
+
+    // Simpan pesan ke global array
+    global.allMessages.push(data);
+
+    // Simpan pesan ke database
+    //('💾 Calling saveMessageToDatabase...');
+    await saveMessageToDatabase(data);
+
+    //('📨 Pesan masuk dari:', message.from);
+    //('📝 Isi pesan:', message.body);
+
+    // Emit to socket clients FIRST for real-time display
+    io.emit('message', data);
+
+    // Check if this is an incoming message (not from 'me')
+    if (data.from !== 'me' && !data.from.includes('@newsletter') && !data.from.includes('@broadcast')) {
+      // Skip AI processing if LID without phone (can't send message to LID)
+      if (!data.is_lid_without_phone) {
+        // Set AI in-progress flag IMMEDIATELY to prevent race conditions
+        // Use real phone if available (from LID), otherwise use normalized
+        const phone = data.from_real_phone
+          ? normalizePhoneNumber(data.from_real_phone)
+          : (data.from_normalized || normalizePhoneNumber(data.from));
+
+        // Only add flag if phone is valid (not LID format)
+        if (phone && !phone.startsWith('lid:')) {
+          try {
+            global.aiInProgressPhones.add(phone);
+            global.aiProcessingStartTime.set(phone, Date.now());
+            //('🔒 Pre-set AI in-progress flag for:', phone);
+            //('🔒 Current AI in-progress phones:', Array.from(global.aiInProgressPhones));
+          } catch (_) { }
+        }
+      } else {
+        console.log('⏭️ Skipping AI processing for LID without phone:', data.from);
+      }
+
+      // Process AI response for incoming messages (async, don't wait)
+      // Only process if not LID without phone
+      if (!data.is_lid_without_phone) {
+        processIncomingMessage(data).catch(error => {
+          console.error('❌ Error processing AI response:', error);
+          // Clear flag on error with delay
+          setTimeout(() => {
+            try {
+              const phoneForError = data.from_real_phone
+                ? normalizePhoneNumber(data.from_real_phone)
+                : (data.from_normalized || normalizePhoneNumber(data.from));
+              if (phoneForError && !phoneForError.startsWith('lid:')) {
+                global.aiInProgressPhones.delete(phoneForError);
+                global.aiProcessingStartTime.delete(phoneForError);
+                global.lastAiResponseTime.set(phoneForError, Date.now()); // Record time even for process error
+              }
+              //('✅ Cleared AI in-progress flag (process error):', phone);
+            } catch (_) { }
+          }, 5000); // 5 second delay
+        });
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ Error handling message:', error);
+  }
+});
+
+// Socket.IO Connection Handling
+io.on('connection', (socket) => {
+  //('Client connected:', socket.id);
+
+  socket.on('disconnect', () => {
+    //('Client disconnected:', socket.id);
+  });
+
+  // Send current status to new client
+  socket.emit('status', {
+    status: client.info ? 'connected' : 'disconnected',
+    message: client.info ? 'WhatsApp is connected' : 'WhatsApp is not connected'
+  });
+});
+
+// API Routes
+app.get('/', (req, res) => {
+  res.send('Hello World from fajar di wa socket v2?! ');
+});
+
+app.get('/status', async (req, res) => {
+  try {
+    const state = await client.getState();
+    res.json({
+      success: true,
+      status: state,
+      connected: state === 'CONNECTED',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.get('/init', (req, res) => {
+  try {
+    client.initialize();
+    res.json({ success: true, message: 'WhatsApp initialization started' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error initializing: ' + error.message });
+  }
+});
+
+app.get('/logout', async (req, res) => {
+  try {
+    await client.logout();
+
+    // Clean up auth folder after logout
+    const cleanupSuccess = cleanupAuthFolder();
+
+    // Emit disconnected status to all clients
+    io.emit('status', { status: 'disconnected', message: 'WhatsApp logged out successfully' });
+
+    res.json({
+      success: true,
+      message: 'WhatsApp logged out successfully',
+      authCleaned: cleanupSuccess
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error logging out: ' + error.message });
+  }
+});
+
+app.get('/scan', (req, res) => {
+  res.sendFile(__dirname + '/scan.html');
+});
+
+// Endpoint untuk manual cleanup auth folder
+app.get('/cleanup-auth', (req, res) => {
+  try {
+    const cleanupSuccess = cleanupAuthFolder();
+
+    res.json({
+      success: cleanupSuccess,
+      message: cleanupSuccess ? 'Auth folder cleaned successfully' : 'Failed to clean auth folder'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error cleaning auth folder: ' + error.message
+    });
+  }
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Endpoint untuk clear pesan
+app.delete('/messages', (req, res) => {
+  try {
+    global.allMessages = [];
+    res.json({
+      success: true,
+      message: 'Messages cleared successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error clearing messages: ' + error.message
+    });
+  }
+});
+
+// Endpoint untuk health check khusus client chat
+app.get('/client-chat/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'WhatsApp Socket V2 is running',
+    timestamp: new Date().toISOString(),
+    status: 'ready'
+  });
+});
+
+// API Key endpoints
+app.get('/api/api-keys', async (req, res) => {
+  try {
+    const apiKeys = await ApiKey.findAll({
+      attributes: ['id', 'service', 'is_active', 'created_at', 'updated_at']
+    });
+
+    res.json({
+      success: true,
+      data: apiKeys
+    });
+  } catch (error) {
+    console.error('Error getting API keys:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting API keys: ' + error.message
+    });
+  }
+});
+
+app.get('/api/api-keys/:service', async (req, res) => {
+  try {
+    const { service } = req.params;
+    const apiKey = await ApiKey.findOne({
+      where: { service },
+      attributes: ['id', 'service', 'api_key', 'is_active', 'created_at', 'updated_at']
+    });
+
+    if (!apiKey) {
+      return res.status(404).json({
+        success: false,
+        message: `API key for ${service} not found`
+      });
+    }
+
+    res.json({
+      success: true,
+      data: apiKey
+    });
+  } catch (error) {
+    console.error('Error getting API key:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting API key: ' + error.message
+    });
+  }
+});
+
+app.post('/api/api-keys', async (req, res) => {
+  try {
+    const { service, api_key, is_active = true } = req.body;
+
+    if (!service || !api_key) {
+      return res.status(400).json({
+        success: false,
+        message: 'Service and API key are required'
+      });
+    }
+
+    // Check if API key already exists
+    const existingKey = await ApiKey.findOne({
+      where: { service }
+    });
+
+    if (existingKey) {
+      // Update existing
+      await existingKey.update({
+        api_key,
+        is_active
+      });
+      //(`✅ Updated API key for ${service}`);
+    } else {
+      // Create new
+      await ApiKey.create({
+        service,
+        api_key,
+        is_active
+      });
+      //(`✅ Created API key for ${service}`);
+    }
+
+    res.json({
+      success: true,
+      message: `API key for ${service} saved successfully`
+    });
+  } catch (error) {
+    console.error('Error saving API key:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving API key: ' + error.message
+    });
+  }
+});
+
+app.post('/api/api-keys/test/:service', async (req, res) => {
+  try {
+    const { service } = req.params;
+    const apiKey = await ApiKey.findOne({
+      where: { service, is_active: true }
+    });
+
+    if (!apiKey) {
+      return res.json({
+        success: false,
+        valid: false,
+        message: `API key for ${service} not found`
+      });
+    }
+
+    res.json({
+      success: true,
+      valid: true,
+      message: `API key for ${service} is valid`
+    });
+  } catch (error) {
+    console.error('Error testing API key:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error testing API key: ' + error.message
+    });
+  }
+});
+
+// Endpoint untuk send media files
+app.post('/send-media', async (req, res) => {
+  try {
+    const { phone, media, agentId } = req.body;
+
+    if (!phone || !media) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and media data are required'
+      });
+    }
+
+    const state = await client.getState();
+    if (state !== 'CONNECTED') {
+      return res.status(400).json({
+        success: false,
+        message: 'WhatsApp is not connected. Status: ' + state
+      });
+    }
+
+    // Normalize phone number
+    let normalizedPhone = phone;
+    if (!normalizedPhone.includes('@c.us')) {
+      normalizedPhone = normalizedPhone + '@c.us';
+    }
+
+    // ('📎 Sending media file:', {
+    //   phone: normalizedPhone,
+    //   filename: media.filename,
+    //   mimetype: media.mimetype,
+    //   dataLength: media.data ? media.data.length : 0
+    // });
+
+    // Create media message using WhatsApp Web.js
+    const mediaMessage = new MessageMedia(media.mimetype, media.data, media.filename);
+    const result = await client.sendMessage(normalizedPhone, mediaMessage);
+
+    // Store media message in database
+    try {
+      const toPhone = normalizePhoneNumber(normalizedPhone);
+
+      // Inherit assigned_to from existing open messages for this phone
+      let assignedTo = null;
+      const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+      const raw = digitsOnly(toPhone);
+      const variants = new Set();
+      if (raw) {
+        variants.add(raw);
+        if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+        if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+        if (!raw.startsWith('62')) variants.add('62' + raw);
+      }
+
+      const phoneVariants = Array.from(variants);
+
+      // Check if any existing message for this phone has assigned_to
+      const existingAssignedMessage = await WhatsAppMessage.findOne({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { chat_status: 'open' },
+            { assigned_to: { [Op.ne]: null } }
+          ]
+        },
+        attributes: ['assigned_to'],
+        order: [['received_at', 'DESC']],
+        limit: 1
+      });
+
+      if (existingAssignedMessage && existingAssignedMessage.assigned_to) {
+        assignedTo = existingAssignedMessage.assigned_to;
+        //('👤 Inheriting assigned_to from existing message for media:', assignedTo, 'for phone:', toPhone);
+      }
+
+      await WhatsAppMessage.create({
+        message_id: result.id._serialized,
+        from_number: 'me',
+        to_number: toPhone,
+        body: `[MEDIA] ${media.filename}`,
+        media_data: JSON.stringify(media),
+        message_type: 'media',
+        direction: 'outgoing',
+        timestamp: Math.floor(Date.now() / 1000),
+        received_at: new Date().toISOString(),
+        agent_id: agentId || 'react-app',
+        is_read: true, // Media messages are considered read
+        chat_status: 'open', // New messages are open by default
+        assigned_to: assignedTo, // Inherit assigned_to if chat is already assigned
+        instance: 'wa1' // Set instance to wa1 for wa-socket-v1
+      });
+      //('💾 Media message saved to database', assignedTo ? `(assigned to ${assignedTo})` : '');
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Media file sent successfully',
+      messageId: result.id._serialized
+    });
+
+  } catch (error) {
+    console.error('Error sending media:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send media: ' + error.message
+    });
+  }
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    // Test database connection
+    await testConnection();
+
+    // Sync database models without dropping existing data
+    await db.sync();
+    console.log('✅ Database models synchronized');
+
+    // Database connection test completed
+    console.log('✅ Database connection verified');
+
+    // Start server
+    server.listen(port, () => {
+      console.log(`🚀 WhatsApp Socket Server v1 running on port ${port}`);
+      console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔌 AUTOCONNECT_WA: ${process.env.AUTOCONNECT_WA}`);
+
+      // Auto initialize if enabled
+      if (process.env.AUTOCONNECT_WA === '1') {
+        console.log('🔄 Auto-connecting WhatsApp client...');
+        client.initialize();
+      } else {
+        console.log('⏸️  Auto-connect disabled. Use /init endpoint to connect manually.');
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error starting server:', error);
+    process.exit(1);
+  }
+};
+
+// API endpoint to get all unread counts for real-time sync
+app.get('/api/whatsapp/unread-counts', async (req, res) => {
+  try {
+    //('📊 Getting unread counts...');
+
+    // Test database connection first
+    const testQuery = await WhatsAppMessage.findOne({
+      where: { direction: 'incoming' },
+      attributes: ['id'],
+      raw: true
+    });
+
+    //('📊 Database connection test:', testQuery ? 'OK' : 'No data');
+
+    // Simple query to get unread messages (only from open chats, wa1 instance)
+    const unreadMessages = await WhatsAppMessage.findAll({
+      where: {
+        direction: 'incoming',
+        is_read: false,
+        chat_status: 'open', // Only count unread from open chats
+        instance: 'wa1' // Only count unread messages from wa1 instance
+      },
+      attributes: ['from_number'],
+      raw: true
+    });
+
+    //('📊 Found unread messages:', unreadMessages.length);
+
+    // Count messages per phone number
+    const result = {};
+    unreadMessages.forEach(msg => {
+      const phone = msg.from_number;
+      result[phone] = (result[phone] || 0) + 1;
+    });
+
+    //('📊 Unread counts result:', result);
+
+    res.json({
+      success: true,
+      unreadCounts: result,
+      totalUnread: unreadMessages.length
+    });
+  } catch (error) {
+    console.error('Error getting unread counts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting unread counts',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+// API endpoints for unread count management
+// This endpoint is duplicated from wa1Router for direct access
+app.get('/api/whatsapp/messages/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('📥 Fetching messages from database (main router) for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    // Get messages from database
+    const phoneVariants = Array.from(variants);
+
+    // Build query conditions
+    const queryConditions = [
+      // Incoming messages: from this phone to me
+      {
+        from_number: { [Op.in]: phoneVariants },
+        direction: 'incoming'
+      },
+      // Outgoing messages: from me to this phone
+      {
+        from_number: 'me',
+        to_number: { [Op.in]: phoneVariants },
+        direction: 'outgoing'
+      }
+    ];
+
+    const dbMessages = await WhatsAppMessage.findAll({
+      where: {
+        [Op.or]: queryConditions,
+        chat_status: 'open' // Only show messages with open status
+      },
+      order: [
+        ['received_at', 'ASC'],
+        ['id', 'ASC'] // Use ID as tiebreaker for messages with same timestamp
+      ]
+    });
+
+    //('📊 Found', dbMessages.length, 'messages in database for phone:', phone);
+
+    // Transform database messages to format expected by frontend
+    const transformedMessages = dbMessages.map((msg, index) => {
+      const fromPhone = msg.from_number === 'me' ? 'me' :
+        (msg.from_number ? `${msg.from_number}@c.us` : '');
+      const toPhone = msg.to_number ? `${msg.to_number}@c.us` : '';
+
+      // Use received_at only for sorting (most reliable)
+      const receivedAtDate = msg.received_at ? new Date(msg.received_at) : new Date();
+      const receivedAtMs = receivedAtDate.getTime();
+
+      return {
+        id: msg.message_id,
+        from: fromPhone,
+        to: toPhone,
+        body: msg.body || '',
+        timestamp: Math.floor(receivedAtMs / 1000), // Convert received_at to Unix timestamp in seconds
+        hasMedia: msg.message_type === 'image' || msg.message_type === 'media' || !!msg.media_data,
+        receivedAt: msg.received_at || new Date().toISOString(),
+        type: msg.direction === 'outgoing' ? 'sent' : 'received',
+        media: msg.media_data ? JSON.parse(msg.media_data) : null,
+        agentId: msg.agent_id || null,
+        is_pending: msg.is_pending || false, // Include is_pending from database
+        _sortIndex: index // Additional sort index from database
+      };
+    });
+
+    // Sort messages by received_at only (most reliable) to ensure chronological order
+    // This prevents grouping by type - messages will appear in exact time order
+    transformedMessages.sort((a, b) => {
+      // Primary sort: received_at in milliseconds
+      const timeA = new Date(a.receivedAt || 0).getTime();
+      const timeB = new Date(b.receivedAt || 0).getTime();
+
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+
+      // If timestamps are equal, use sort index from database query
+      if (a._sortIndex !== undefined && b._sortIndex !== undefined) {
+        return a._sortIndex - b._sortIndex;
+      }
+
+      // Final fallback: use ID
+      return (a.id || '').localeCompare(b.id || '');
+    });
+
+    // Debug: Log message order after sorting
+    if (transformedMessages.length > 0) {
+      //('📋 Messages order after sorting (main router):');
+      transformedMessages.forEach((msg, idx) => {
+        //(`  ${idx + 1}. ${msg.type} | receivedAt: ${msg.receivedAt} | timestamp: ${msg.timestamp} | body: ${msg.body?.substring(0, 30)}`);
+      });
+    }
+
+    // Remove temporary sort index before sending
+    transformedMessages.forEach(msg => delete msg._sortIndex);
+
+    //('✅ Returning', transformedMessages.length, 'messages for phone:', phone);
+
+    res.json({
+      success: true,
+      messages: transformedMessages,
+      count: transformedMessages.length,
+      phone: phone,
+      source: 'database'
+    });
+  } catch (error) {
+    console.error('❌ Error fetching messages from database:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch messages from database',
+      error: error.message
+    });
+  }
+});
+
+// Mark messages as read for a specific phone number
+app.post('/api/whatsapp/mark-read/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('📖 Marking messages as read for phone (raw):', phone);
+
+    // Normalize phone: keep digits only, handle 0/62/+62 variations
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    // Build variants commonly found in DB
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      // with leading 0
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      // with leading 62
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      // with leading +62 (DB may store '+' stripped, but keep for safety)
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const fromNumberWhere = { [Op.in]: Array.from(variants) };
+
+    // First, let's check what messages exist for this phone
+    const existingMessages = await WhatsAppMessage.findAll({
+      where: {
+        from_number: fromNumberWhere,
+        direction: 'incoming'
+      },
+      attributes: ['id', 'from_number', 'direction', 'is_read', 'body'],
+      raw: true
+    });
+
+    //('📖 Existing messages (normalized variants):', Array.from(variants));
+    //('📖 Existing messages count:', existingMessages.length);
+
+    // Find unread (including null/0/false) for visibility
+    const unreadMessages = await WhatsAppMessage.findAll({
+      where: {
+        from_number: fromNumberWhere,
+        direction: 'incoming',
+        [Op.or]: [
+          { is_read: false },
+          { is_read: 0 },
+          { is_read: null }
+        ]
+      },
+      attributes: ['id', 'from_number', 'direction', 'is_read', 'body'],
+      raw: true
+    });
+
+    //('📖 Unread messages (before update):', unreadMessages.length);
+
+    // Strategy A: update by id IN (exact primary keys)
+    const idsToUpdate = unreadMessages.map(m => m.id);
+    let affected = 0;
+    if (idsToUpdate.length > 0) {
+      const [byIdAffected] = await WhatsAppMessage.update(
+        { is_read: true },
+        {
+          where: { id: { [Op.in]: idsToUpdate } }
+        }
+      );
+      //('📖 Rows affected (by id):', byIdAffected, 'ids:', idsToUpdate);
+      affected = byIdAffected;
+    }
+
+    // Strategy B: if still 0, try condition update again (defensive)
+    if (!affected || affected === 0) {
+      const [byCondAffected] = await WhatsAppMessage.update(
+        { is_read: true },
+        {
+          where: {
+            from_number: fromNumberWhere,
+            direction: 'incoming',
+            [Op.or]: [
+              { is_read: false },
+              { is_read: 0 },
+              { is_read: null }
+            ]
+          }
+        }
+      );
+      //('📖 Rows affected (by condition):', byCondAffected);
+      affected = byCondAffected;
+    }
+
+    // Fallback: if nothing updated, try force update (without is_read filter)
+    let totalAffected = affected;
+    if (!affected || affected === 0) {
+      const [forcedAffected] = await WhatsAppMessage.update(
+        { is_read: true },
+        {
+          where: {
+            from_number: fromNumberWhere,
+            direction: 'incoming'
+          }
+        }
+      );
+      //('📖 Rows affected (forced mark-read):', forcedAffected);
+      totalAffected = forcedAffected;
+
+      // Strategy C: Raw SQL fallback if still 0
+      if ((!totalAffected || totalAffected === 0) && idsToUpdate.length > 0) {
+        try {
+          const placeholders = idsToUpdate.map(() => '?').join(',');
+          const sql = `UPDATE whatsapp_messages SET is_read = 1 WHERE id IN (${placeholders})`;
+          const [rawResult] = await db.query(sql, { replacements: idsToUpdate });
+          const affectedRows = rawResult && (rawResult.affectedRows || rawResult.rowCount || 0);
+          //('📖 Rows affected (raw SQL by id):', affectedRows, 'ids:', idsToUpdate);
+          totalAffected = affectedRows || totalAffected;
+        } catch (rawErr) {
+          console.error('❌ Raw SQL update error:', rawErr.message);
+        }
+      }
+    }
+
+    // Emit to all connected clients for real-time sync
+    io.emit('messagesRead', {
+      phone: phone,
+      unreadCount: 0
+    });
+
+    res.json({
+      success: true,
+      message: 'Messages marked as read',
+      rowsAffected: totalAffected,
+      normalizedFromNumbers: Array.from(variants)
+    });
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
+  }
+});
+
+// Get unread count for a specific phone number (wa1 instance)
+wa1Router.get('/api/whatsapp/unread-count/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const unreadCount = await WhatsAppMessage.count({
+      where: {
+        from_number: { [Op.in]: Array.from(variants) },
+        direction: 'incoming',
+        instance: 'wa1', // Only count unread messages from wa1 instance
+        is_read: false,
+        chat_status: 'open' // Only count unread from open chats
+      }
+    });
+
+    res.json({ unreadCount });
+  } catch (error) {
+    console.error('Error getting unread count:', error);
+    res.status(500).json({ error: 'Failed to get unread count' });
+  }
+});
+
+// Get assigned status for a phone number
+wa1Router.get('/api/whatsapp/assigned-status/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('📋 Checking assigned status for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Get the most recent message to check assigned_to
+    const message = await WhatsAppMessage.findOne({
+      where: {
+        [Op.or]: [
+          { from_number: { [Op.in]: phoneVariants } },
+          { to_number: { [Op.in]: phoneVariants } }
+        ],
+        chat_status: 'open'
+      },
+      order: [['received_at', 'DESC']],
+      attributes: ['assigned_to']
+    });
+
+    res.json({
+      success: true,
+      assignedTo: message?.assigned_to || null,
+      isAssigned: !!message?.assigned_to
+    });
+  } catch (error) {
+    console.error('❌ Error checking assigned status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check assigned status',
+      error: error.message
+    });
+  }
+});
+
+// Duplicate endpoint for main router
+app.get('/api/whatsapp/assigned-status/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('📋 Checking assigned status for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Get the most recent message to check assigned_to
+    const message = await WhatsAppMessage.findOne({
+      where: {
+        [Op.or]: [
+          { from_number: { [Op.in]: phoneVariants } },
+          { to_number: { [Op.in]: phoneVariants } }
+        ],
+        chat_status: 'open'
+      },
+      order: [['received_at', 'DESC']],
+      attributes: ['assigned_to']
+    });
+
+    res.json({
+      success: true,
+      assignedTo: message?.assigned_to || null,
+      isAssigned: !!message?.assigned_to
+    });
+  } catch (error) {
+    console.error('❌ Error checking assigned status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check assigned status',
+      error: error.message
+    });
+  }
+});
+
+// Assign chat to agent (disable AI response) - supports multiple agents (comma-separated)
+wa1Router.post('/api/whatsapp/assign-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { agentId } = req.body;
+
+    if (!agentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Agent ID is required'
+      });
+    }
+
+    //('👤 Assigning chat to agent:', phone, '->', agentId);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Get existing assigned_to to append new agent
+    const existingMessage = await WhatsAppMessage.findOne({
+      where: {
+        [Op.or]: [
+          { from_number: { [Op.in]: phoneVariants } },
+          { to_number: { [Op.in]: phoneVariants } }
+        ],
+        chat_status: 'open',
+        assigned_to: { [Op.ne]: null }
+      },
+      attributes: ['assigned_to'],
+      order: [['received_at', 'DESC']],
+      limit: 1
+    });
+
+    let newAssignedTo = String(agentId);
+
+    if (existingMessage && existingMessage.assigned_to) {
+      // Parse existing assigned_to (comma-separated)
+      const existingAgents = existingMessage.assigned_to.split(',').map(a => a.trim()).filter(a => a);
+
+      // Check if agentId already in the list
+      if (!existingAgents.includes(String(agentId))) {
+        // Append new agent ID
+        existingAgents.push(String(agentId));
+        newAssignedTo = existingAgents.join(',');
+        //('➕ Appending agent', agentId, 'to existing assigned agents:', existingMessage.assigned_to, '->', newAssignedTo);
+      } else {
+        // Agent already assigned, no change needed
+        newAssignedTo = existingMessage.assigned_to;
+        //('ℹ️ Agent', agentId, 'already in assigned list:', newAssignedTo);
+      }
+    }
+
+    // Update all messages for this phone to assigned status
+    const [affectedRows] = await WhatsAppMessage.update(
+      { assigned_to: newAssignedTo },
+      {
+        where: {
+          [Op.or]: [
+            { from_number: { [Op.in]: phoneVariants } },
+            { to_number: { [Op.in]: phoneVariants } }
+          ],
+          chat_status: 'open' // Only assign open chats
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages assigned to agents', newAssignedTo, 'for phone:', phone);
+
+    res.json({
+      success: true,
+      message: 'Chat assigned successfully',
+      phone: phone,
+      agentId: agentId,
+      assignedTo: newAssignedTo,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error assigning chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign chat',
+      error: error.message
+    });
+  }
+});
+
+// Duplicate endpoint for main router - supports multiple agents (comma-separated)
+app.post('/api/whatsapp/assign-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const { agentId } = req.body;
+
+    if (!agentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Agent ID is required'
+      });
+    }
+
+    //('👤 Assigning chat to agent:', phone, '->', agentId);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Get existing assigned_to to append new agent
+    const existingMessage = await WhatsAppMessage.findOne({
+      where: {
+        [Op.or]: [
+          { from_number: { [Op.in]: phoneVariants } },
+          { to_number: { [Op.in]: phoneVariants } }
+        ],
+        chat_status: 'open',
+        assigned_to: { [Op.ne]: null }
+      },
+      attributes: ['assigned_to'],
+      order: [['received_at', 'DESC']],
+      limit: 1
+    });
+
+    let newAssignedTo = String(agentId);
+
+    if (existingMessage && existingMessage.assigned_to) {
+      // Parse existing assigned_to (comma-separated)
+      const existingAgents = existingMessage.assigned_to.split(',').map(a => a.trim()).filter(a => a);
+
+      // Check if agentId already in the list
+      if (!existingAgents.includes(String(agentId))) {
+        // Append new agent ID
+        existingAgents.push(String(agentId));
+        newAssignedTo = existingAgents.join(',');
+        //('➕ Appending agent', agentId, 'to existing assigned agents:', existingMessage.assigned_to, '->', newAssignedTo);
+      } else {
+        // Agent already assigned, no change needed
+        newAssignedTo = existingMessage.assigned_to;
+        //('ℹ️ Agent', agentId, 'already in assigned list:', newAssignedTo);
+      }
+    }
+
+    // Update all messages for this phone to assigned status
+    const [affectedRows] = await WhatsAppMessage.update(
+      { assigned_to: newAssignedTo },
+      {
+        where: {
+          [Op.or]: [
+            { from_number: { [Op.in]: phoneVariants } },
+            { to_number: { [Op.in]: phoneVariants } }
+          ],
+          chat_status: 'open' // Only assign open chats
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages assigned to agents', newAssignedTo, 'for phone:', phone);
+
+    res.json({
+      success: true,
+      message: 'Chat assigned successfully',
+      phone: phone,
+      agentId: agentId,
+      assignedTo: newAssignedTo,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error assigning chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign chat',
+      error: error.message
+    });
+  }
+});
+
+// Mark messages as read for a specific phone number (wa1 instance)
+wa1Router.post('/api/whatsapp/mark-read/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('📖 Marking messages as read for phone (wa1):', phone);
+
+    // Normalize phone: keep digits only, handle 0/62/+62 variations
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const fromNumberWhere = { [Op.in]: Array.from(variants) };
+
+    // Find unread messages (only for wa1 instance)
+    const unreadMessages = await WhatsAppMessage.findAll({
+      where: {
+        from_number: fromNumberWhere,
+        direction: 'incoming',
+        instance: 'wa1', // Only mark messages from wa1 instance
+        [Op.or]: [
+          { is_read: false },
+          { is_read: 0 },
+          { is_read: null }
+        ]
+      },
+      attributes: ['id', 'from_number', 'direction', 'is_read'],
+      raw: true
+    });
+
+    //('📖 Unread messages (wa1, before update):', unreadMessages.length);
+
+    // Update by id
+    const idsToUpdate = unreadMessages.map(m => m.id);
+    let totalAffected = 0;
+    if (idsToUpdate.length > 0) {
+      const [affected] = await WhatsAppMessage.update(
+        { is_read: true },
+        {
+          where: {
+            id: { [Op.in]: idsToUpdate },
+            instance: 'wa1' // Ensure only wa1 messages are updated
+          }
+        }
+      );
+      totalAffected = affected;
+      //('📖 Rows affected (wa1, by id):', totalAffected);
+    }
+
+    // Fallback: update by condition if no rows affected
+    if (totalAffected === 0) {
+      const [affected] = await WhatsAppMessage.update(
+        { is_read: true },
+        {
+          where: {
+            from_number: fromNumberWhere,
+            direction: 'incoming',
+            instance: 'wa1', // Only update wa1 messages
+            [Op.or]: [
+              { is_read: false },
+              { is_read: 0 },
+              { is_read: null }
+            ]
+          }
+        }
+      );
+      totalAffected = affected;
+      //('📖 Rows affected (wa1, by condition):', totalAffected);
+    }
+
+    // Emit to all connected clients for real-time sync
+    io.emit('messagesRead', {
+      phone: phone,
+      unreadCount: 0,
+      instance: 'wa1'
+    });
+
+    res.json({
+      success: true,
+      message: 'Messages marked as read',
+      rowsAffected: totalAffected,
+      instance: 'wa1',
+      normalizedFromNumbers: Array.from(variants)
+    });
+  } catch (error) {
+    console.error('❌ Error marking messages as read (wa1):', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
+  }
+});
+
+// Update chat status to closed (for solve chat functionality)
+wa1Router.post('/api/whatsapp/close-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('🔒 Closing chat for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Update all messages for this phone to closed status and set is_pending = 0 (only for wa1 instance)
+    const [affectedRows] = await WhatsAppMessage.update(
+      { chat_status: 'closed', is_pending: false },
+      {
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { instance: 'wa1' } // Only update messages from wa1 instance
+          ]
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages to closed status for phone:', phone, '(wa1 instance)');
+
+    res.json({
+      success: true,
+      message: 'Chat closed successfully',
+      phone: phone,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error closing chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to close chat',
+      error: error.message
+    });
+  }
+});
+
+// Pending chat endpoint for wa1 instance
+wa1Router.post('/api/whatsapp/pending-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('⏸️ Pending chat for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Update all messages for this phone to pending status (only for wa1 instance)
+    // Set is_pending to true instead of changing chat_status
+    const [affectedRows] = await WhatsAppMessage.update(
+      { is_pending: true },
+      {
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { instance: 'wa1' } // Only update messages from wa1 instance
+          ]
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages to pending status for phone:', phone, '(wa1 instance)');
+
+    res.json({
+      success: true,
+      message: 'Chat pending successfully',
+      phone: phone,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error pending chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to pending chat',
+      error: error.message
+    });
+  }
+});
+
+// Get closed WhatsApp chats (for chat history)
+wa1Router.get('/api/whatsapp/closed-chats', async (req, res) => {
+  try {
+    //('📥 Fetching closed WhatsApp chats from database');
+
+    // Get phone numbers that have closed messages (for history view)
+    // Include ALL phones with closed messages, even if they also have open messages
+    // This ensures history shows all chats that were ever closed
+
+    // Get phones with closed messages and their latest closed message (only for wa1 instance)
+    const closedMessages = await WhatsAppMessage.findAll({
+      where: {
+        chat_status: 'closed',
+        instance: 'wa1' // Only get closed chats from wa1 instance
+      },
+      attributes: [
+        'from_number',
+        'to_number',
+        'instance',
+        [Sequelize.fn('MAX', Sequelize.col('received_at')), 'last_message_time'],
+        [Sequelize.fn('MAX', Sequelize.col('body')), 'last_message']
+      ],
+      group: ['from_number', 'to_number', 'instance'],
+      raw: true
+    });
+
+    // Build set of phones from closed messages
+    const phoneToLatestClosed = new Map();
+    closedMessages.forEach(msg => {
+      let phone = msg.from_number !== 'me' ? msg.from_number : msg.to_number;
+      if (!phone) return;
+
+      // Normalize phone number to remove @lib, @lid, @c.us, etc.
+      const normalizedPhone = normalizePhoneNumber(phone);
+
+      if (!phoneToLatestClosed.has(normalizedPhone) ||
+        new Date(msg.last_message_time) > new Date(phoneToLatestClosed.get(normalizedPhone).lastMessageTime)) {
+        phoneToLatestClosed.set(normalizedPhone, {
+          lastMessage: msg.last_message || 'No message',
+          lastMessageTime: msg.last_message_time,
+          instance: msg.instance || 'wa1' // Include instance from database
+        });
+      }
+    });
+
+    // Include ALL phones that have closed messages (for history view)
+    const phonesArray = Array.from(phoneToLatestClosed.keys());
+    const closedPhonesOnly = [];
+
+    if (phonesArray.length > 0) {
+      // Include ALL phones that have closed messages (don't filter out those with open messages)
+      phoneToLatestClosed.forEach((data, normalizedPhone) => {
+        closedPhonesOnly.push({
+          phone: normalizedPhone, // Return normalized phone to frontend
+          chat_id: `whatsapp-${normalizedPhone}`,
+          lastMessage: data.lastMessage,
+          lastMessageTime: data.lastMessageTime,
+          status: 'closed',
+          instance: data.instance || 'wa1', // Include instance from database
+          hasOpenMessages: false // Will be set below if needed
+        });
+      });
+
+      // Check which phones also have open messages (for reference only, still include them)
+      const openFromNumbers = await WhatsAppMessage.findAll({
+        where: {
+          from_number: { [Op.in]: phonesArray },
+          chat_status: 'open',
+          instance: 'wa1' // Only check open messages from wa1 instance
+        },
+        attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('from_number')), 'phone']],
+        raw: true
+      });
+
+      const openToNumbers = await WhatsAppMessage.findAll({
+        where: {
+          to_number: { [Op.in]: phonesArray },
+          chat_status: 'open',
+          instance: 'wa1' // Only check open messages from wa1 instance
+        },
+        attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('to_number')), 'phone']],
+        raw: true
+      });
+
+      const phonesWithOpenSet = new Set();
+      openFromNumbers.forEach(msg => {
+        if (msg.phone && msg.phone !== 'me') phonesWithOpenSet.add(msg.phone);
+      });
+      openToNumbers.forEach(msg => {
+        if (msg.phone) phonesWithOpenSet.add(msg.phone);
+      });
+
+      // Mark phones that also have open messages (but still include them in history)
+      closedPhonesOnly.forEach(chat => {
+        if (phonesWithOpenSet.has(chat.phone)) {
+          chat.hasOpenMessages = true;
+        }
+      });
+    }
+
+    // Sort by last message time (newest first)
+    closedPhonesOnly.sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime || 0).getTime();
+      const timeB = new Date(b.lastMessageTime || 0).getTime();
+      return timeB - timeA;
+    });
+
+    //('✅ Returning', closedPhonesOnly.length, 'closed WhatsApp chats (all phones with closed messages, including those that also have open messages)');
+
+    res.json({
+      success: true,
+      chats: closedPhonesOnly,
+      count: closedPhonesOnly.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching closed chats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch closed chats',
+      error: error.message
+    });
+  }
+});
+
+// Get chats list from database (aggregated from whatsapp_messages)
+wa1Router.get('/api/whatsapp/chats', async (req, res) => {
+  try {
+    //('📥 Fetching WhatsApp chats list from database (wa1)');
+
+    // Get all open messages from database
+    const openMessages = await WhatsAppMessage.findAll({
+      where: {
+        chat_status: 'open',
+        instance: 'wa1'
+      },
+      order: [['received_at', 'DESC']],
+      raw: true
+    });
+
+    // Group messages by phone number
+    const phoneToChat = new Map();
+
+    openMessages.forEach(msg => {
+      let phone = msg.from_number !== 'me' ? msg.from_number : msg.to_number;
+      if (!phone) return;
+
+      // Normalize phone number to remove @lib, @lid, @c.us, etc.
+      const normalizedPhone = normalizePhoneNumber(phone);
+
+      // Use normalized phone as key, but keep original for reference
+      if (!phoneToChat.has(normalizedPhone)) {
+        // Initialize chat entry
+        phoneToChat.set(normalizedPhone, {
+          phone: normalizedPhone, // Return normalized phone to frontend
+          lastMessage: msg.body || 'No message',
+          lastMessageTime: msg.received_at,
+          unreadCount: 0,
+          instance: 'wa1',
+          isAssigned: false,
+          assignedTo: null
+        });
+      } else {
+        const chat = phoneToChat.get(normalizedPhone);
+        // Update with latest message if this one is newer
+        if (new Date(msg.received_at) > new Date(chat.lastMessageTime)) {
+          chat.lastMessage = msg.body || 'No message';
+          chat.lastMessageTime = msg.received_at;
+        }
+      }
+
+      // Count unread messages
+      if (msg.direction === 'incoming' && !msg.is_read) {
+        const chat = phoneToChat.get(normalizedPhone);
+        chat.unreadCount = (chat.unreadCount || 0) + 1;
+      }
+    });
+
+    // Handle media files - update lastMessage with descriptive text
+    openMessages.forEach(msg => {
+      let phone = msg.from_number !== 'me' ? msg.from_number : msg.to_number;
+      if (!phone) return;
+
+      // Normalize phone number
+      const normalizedPhone = normalizePhoneNumber(phone);
+      const chat = phoneToChat.get(normalizedPhone);
+      if (chat && msg.received_at === chat.lastMessageTime && msg.media_data) {
+        try {
+          const mediaData = typeof msg.media_data === 'string' ? JSON.parse(msg.media_data) : msg.media_data;
+          const mimeType = mediaData.mimetype || mediaData.mimeType || '';
+          const fileName = mediaData.filename || mediaData.fileName || '';
+
+          if (mimeType.startsWith('image/')) {
+            chat.lastMessage = '📎 Image';
+          } else if (mimeType.startsWith('video/')) {
+            chat.lastMessage = '📎 Video';
+          } else if (mimeType === 'application/pdf') {
+            chat.lastMessage = '📎 PDF';
+          } else if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || fileName.match(/\.(xls|xlsx)$/i)) {
+            chat.lastMessage = '📎 Excel';
+          } else if (mimeType.includes('word') || fileName.match(/\.(doc|docx)$/i)) {
+            chat.lastMessage = '📎 Document';
+          } else if (fileName) {
+            chat.lastMessage = `📎 ${fileName}`;
+          } else {
+            chat.lastMessage = '📎 Media file';
+          }
+        } catch (parseError) {
+          console.warn('Error parsing media_data for phone', phone, ':', parseError);
+          // If parsing fails, keep the original lastMessage
+        }
+      }
+    });
+
+    // Check assigned status for each chat (from whatsapp_messages table)
+    const phonesArray = Array.from(phoneToChat.keys());
+    if (phonesArray.length > 0) {
+      // Get assigned_to from the most recent message for each phone
+      const assignedMessages = await WhatsAppMessage.findAll({
+        where: {
+          [Op.or]: [
+            { from_number: { [Op.in]: phonesArray }, direction: 'incoming' },
+            { to_number: { [Op.in]: phonesArray }, from_number: 'me', direction: 'outgoing' }
+          ],
+          chat_status: 'open',
+          instance: 'wa1',
+          assigned_to: { [Op.ne]: null }
+        },
+        attributes: ['from_number', 'to_number', 'assigned_to', 'received_at'],
+        order: [['received_at', 'DESC']],
+        raw: true
+      });
+
+      // Group by phone and get the most recent assigned_to
+      const phoneToAssigned = new Map();
+      assignedMessages.forEach(msg => {
+        let phone = msg.from_number !== 'me' ? msg.from_number : msg.to_number;
+        if (!phone) return;
+
+        // Normalize phone number to match the key in phoneToChat
+        const normalizedPhone = normalizePhoneNumber(phone);
+        if (phoneToAssigned.has(normalizedPhone)) return; // Already have a more recent one
+
+        if (msg.assigned_to) {
+          phoneToAssigned.set(normalizedPhone, msg.assigned_to);
+        }
+      });
+
+      // Update chats with assigned status
+      phoneToAssigned.forEach((assignedTo, normalizedPhone) => {
+        const chat = phoneToChat.get(normalizedPhone);
+        if (chat) {
+          chat.isAssigned = true;
+          chat.assignedTo = assignedTo;
+        }
+      });
+    }
+
+    // Convert to array and sort by last message time
+    const chats = Array.from(phoneToChat.values()).sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime || 0).getTime();
+      const timeB = new Date(b.lastMessageTime || 0).getTime();
+      return timeB - timeA; // Most recent first
+    });
+
+    //(`📊 Found ${chats.length} chats in database (wa1)`);
+
+    return res.json({
+      success: true,
+      chats: chats,
+      count: chats.length,
+      instance: 'wa1'
+    });
+  } catch (error) {
+    console.error('❌ Error fetching chats from database (wa1):', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch chats',
+      error: error.message
+    });
+  }
+});
+
+// Duplicate endpoint for main router
+app.get('/api/whatsapp/closed-chats', async (req, res) => {
+  try {
+    //('📥 Fetching closed WhatsApp chats from database');
+
+    // Get phone numbers that have ONLY closed messages (no open messages)
+    // Use SQL subquery to find phones that have closed messages but no open messages
+
+    // Get phones with closed messages and their latest closed message (only for wa1 instance)
+    const closedMessages = await WhatsAppMessage.findAll({
+      where: {
+        chat_status: 'closed',
+        instance: 'wa1' // Only get closed chats from wa1 instance
+      },
+      attributes: [
+        'from_number',
+        'to_number',
+        'instance',
+        [Sequelize.fn('MAX', Sequelize.col('received_at')), 'last_message_time'],
+        [Sequelize.fn('MAX', Sequelize.col('body')), 'last_message']
+      ],
+      group: ['from_number', 'to_number', 'instance'],
+      raw: true
+    });
+
+    // Build set of phones from closed messages
+    const phoneToLatestClosed = new Map();
+    closedMessages.forEach(msg => {
+      let phone = msg.from_number !== 'me' ? msg.from_number : msg.to_number;
+      if (!phone) return;
+
+      // Normalize phone number to remove @lib, @lid, @c.us, etc.
+      const normalizedPhone = normalizePhoneNumber(phone);
+
+      if (!phoneToLatestClosed.has(normalizedPhone) ||
+        new Date(msg.last_message_time) > new Date(phoneToLatestClosed.get(normalizedPhone).lastMessageTime)) {
+        phoneToLatestClosed.set(normalizedPhone, {
+          lastMessage: msg.last_message || 'No message',
+          lastMessageTime: msg.last_message_time,
+          instance: msg.instance || 'wa1' // Include instance from database
+        });
+      }
+    });
+
+    // Check which phones have NO open messages (using bulk query for efficiency)
+    const phonesArray = Array.from(phoneToLatestClosed.keys());
+    const closedPhonesOnly = [];
+
+    if (phonesArray.length > 0) {
+      // Find phones that have open messages (check both from_number and to_number, only for wa1 instance)
+      // Note: We need to check against original phone numbers in DB, so we'll normalize during comparison
+      const openFromNumbers = await WhatsAppMessage.findAll({
+        where: {
+          chat_status: 'open',
+          instance: 'wa1' // Only check open messages from wa1 instance
+        },
+        attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('from_number')), 'phone']],
+        raw: true
+      });
+
+      const openToNumbers = await WhatsAppMessage.findAll({
+        where: {
+          chat_status: 'open',
+          instance: 'wa1' // Only check open messages from wa1 instance
+        },
+        attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('to_number')), 'phone']],
+        raw: true
+      });
+
+      const phonesWithOpenSet = new Set();
+      openFromNumbers.forEach(msg => {
+        if (msg.phone && msg.phone !== 'me') {
+          const normalized = normalizePhoneNumber(msg.phone);
+          phonesWithOpenSet.add(normalized);
+        }
+      });
+      openToNumbers.forEach(msg => {
+        if (msg.phone) {
+          const normalized = normalizePhoneNumber(msg.phone);
+          phonesWithOpenSet.add(normalized);
+        }
+      });
+
+      // Only include phones that don't have open messages
+      phoneToLatestClosed.forEach((data, normalizedPhone) => {
+        if (!phonesWithOpenSet.has(normalizedPhone)) {
+          closedPhonesOnly.push({
+            phone: normalizedPhone, // Return normalized phone to frontend
+            chat_id: `whatsapp-${normalizedPhone}`,
+            lastMessage: data.lastMessage,
+            lastMessageTime: data.lastMessageTime,
+            status: 'closed',
+            instance: data.instance || 'wa1' // Include instance from database
+          });
+        }
+      });
+    }
+
+    // Sort by last message time (newest first)
+    closedPhonesOnly.sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime || 0).getTime();
+      const timeB = new Date(b.lastMessageTime || 0).getTime();
+      return timeB - timeA;
+    });
+
+    //('✅ Returning', closedPhonesOnly.length, 'closed WhatsApp chats (phones with only closed messages)');
+
+    res.json({
+      success: true,
+      chats: closedPhonesOnly,
+      count: closedPhonesOnly.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching closed chats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch closed chats',
+      error: error.message
+    });
+  }
+});
+
+// Duplicate endpoint for main router
+app.post('/api/whatsapp/close-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    //('🔒 Closing chat for phone:', phone);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Update all messages for this phone to closed status and set is_pending = 0 (only for wa1 instance)
+    const [affectedRows] = await WhatsAppMessage.update(
+      { chat_status: 'closed', is_pending: false },
+      {
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { instance: 'wa1' } // Only update messages from wa1 instance
+          ]
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages to closed status for phone:', phone, '(wa1 instance)');
+
+    res.json({
+      success: true,
+      message: 'Chat closed successfully',
+      phone: phone,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error closing chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to close chat',
+      error: error.message
+    });
+  }
+});
+
+// Pending chat endpoint for all instances (dynamic instance from request)
+app.post('/api/whatsapp/pending-chat/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    // Get instance from query parameter or default to wa1
+    const instance = req.query.instance || req.headers['x-instance'] || 'wa1';
+    //('⏸️ Pending chat for phone:', phone, 'instance:', instance);
+
+    // Normalize phone: handle variations (0/62/+62)
+    const digitsOnly = (str) => (str || '').replace(/\D/g, '');
+    const raw = digitsOnly(phone);
+    const variants = new Set();
+    if (raw) {
+      variants.add(raw);
+      if (raw.startsWith('62')) variants.add('0' + raw.slice(2));
+      if (raw.startsWith('0')) variants.add('62' + raw.slice(1));
+      if (!raw.startsWith('62')) variants.add('62' + raw);
+    }
+
+    const phoneVariants = Array.from(variants);
+
+    // Update all messages for this phone to pending status for the specified instance
+    // Set is_pending to true instead of changing chat_status
+    const [affectedRows] = await WhatsAppMessage.update(
+      { is_pending: true },
+      {
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { from_number: { [Op.in]: phoneVariants } },
+                { to_number: { [Op.in]: phoneVariants } }
+              ]
+            },
+            { instance: instance } // Update messages from the specified instance
+          ]
+        }
+      }
+    );
+
+    //('✅ Updated', affectedRows, 'messages to pending status for phone:', phone, 'instance:', instance);
+
+    res.json({
+      success: true,
+      message: 'Chat pending successfully',
+      phone: phone,
+      instance: instance,
+      affectedRows: affectedRows
+    });
+  } catch (error) {
+    console.error('❌ Error pending chat:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to pending chat',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint to get agent name by ID from database
+wa1Router.get('/api/whatsapp/agent/:agentId', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+
+    if (!agentId || isNaN(agentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid agent ID'
+      });
+    }
+
+    // Query directly from agent table using SQL
+    const [results] = await db.query(
+      'SELECT id, name, email FROM agent WHERE id = ? LIMIT 1',
+      {
+        replacements: [parseInt(agentId)]
+      }
+    );
+
+    if (results && results.length > 0) {
+      const agent = results[0];
+      const agentName = agent.name || agent.email || null;
+
+      if (agentName) {
+        return res.json({
+          success: true,
+          agentId: agentId,
+          agentName: agentName,
+          agentData: {
+            id: agent.id,
+            name: agent.name,
+            email: agent.email
+          }
+        });
+      }
+    }
+
+    // Agent not found
+    res.status(404).json({
+      success: false,
+      message: 'Agent not found'
+    });
+  } catch (error) {
+    console.error(`❌ Error fetching agent ${req.params.agentId} from database:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch agent data',
+      error: error.message
+    });
+  }
+});
+
+// Same endpoint for main app router
+app.get('/api/whatsapp/agent/:agentId', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+
+    if (!agentId || isNaN(agentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid agent ID'
+      });
+    }
+
+    // Query directly from agent table using SQL
+    const [results] = await db.query(
+      'SELECT id, name, email FROM agent WHERE id = ? LIMIT 1',
+      {
+        replacements: [parseInt(agentId)]
+      }
+    );
+
+    if (results && results.length > 0) {
+      const agent = results[0];
+      const agentName = agent.name || agent.email || null;
+
+      if (agentName) {
+        return res.json({
+          success: true,
+          agentId: agentId,
+          agentName: agentName,
+          agentData: {
+            id: agent.id,
+            name: agent.name,
+            email: agent.email
+          }
+        });
+      }
+    }
+
+    // Agent not found
+    res.status(404).json({
+      success: false,
+      message: 'Agent not found'
+    });
+  } catch (error) {
+    console.error(`❌ Error fetching agent ${req.params.agentId} from database:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch agent data',
+      error: error.message
+    });
+  }
+});
+
+startServer();
+
+module.exports = { client, io };
