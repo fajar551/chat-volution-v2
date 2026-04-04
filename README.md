@@ -21,7 +21,7 @@ Ringkasan singkat: halaman produksi mana yang dibuild dari folder monorepo mana.
 | Backend **live chat** | `backend_clientarea` | API / gateway untuk fitur chat |
 | Backend **WhatsApp** | `wa-socket-v1`, `wa-socket-v2`, … (folder `wa-socket*`) | Proses diatur lewat **PM2** di server |
 
-## Live Chat (dari ikon / alur live chat)
+## Live Chat (dari ikon / alur live chat), itu ada di folder:
 
 - **Frontend:** `chat_v2`
 - **Backend:** `backend_clientarea`
