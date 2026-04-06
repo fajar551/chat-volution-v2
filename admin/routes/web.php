@@ -162,6 +162,17 @@ Route::get('/away-message', 'WEB\LiveChatController@awayMessage');
 Route::get('/closing-message', 'WEB\LiveChatController@closingMessage');
 Route::get('/inbox-setting', 'WEB\LiveChatController@inboxSetting');
 
+/* multi-recipient mail (UI admin) */
+Route::get('/multi-recipient-mail', 'WEB\MultiRecipientMailController@index');
+Route::post('/multi-recipient-mail/send', 'WEB\MultiRecipientMailController@send');
+
+/*
+| Dipanggil dari backend lain (mis. Nest backend_clientarea). Di web.php agar tidak kena
+| CheckAccessBrowser pada grup api. Autentikasi: Bearer token = MULTI_RECIPIENT_MAIL_API_SECRET.
+*/
+Route::post('/api/internal/multi-recipient-mail', 'API\InternalMultiMailController@send')
+    ->middleware('multiMailApiSecret');
+
 
 Route::prefix("testing")->group(function () {
     Route::get('code', 'API\AuthController@testing');

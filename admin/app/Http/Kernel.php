@@ -82,5 +82,6 @@ class Kernel extends HttpKernel
         'api_time' => \App\Http\Middleware\MeasureResponseTime::class,
         'valid_agent' => \App\Http\Middleware\ValidAgentMiddleware::class,
         'company_feature_permission' => \App\Http\Middleware\CompanyFeaturePermissionMiddleware::class,
+        'multiMailApiSecret' => \App\Http\Middleware\VerifyMultiMailApiSecret::class,
     ];
 }

@@ -19,12 +19,26 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ChatGateway } from './chat.gateway';
 import { Response } from 'express';
 import { fileFilter, getFileType, getMessageTypeFromFile, getStorageConfig } from './utils/file-upload.util';
+import { LiveChatEscalationMailService } from './live-chat-escalation-mail.service';
+
+function parseQueryInt(value: unknown, fallback: number): number {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const n =
+    typeof value === 'number' ? value : parseInt(String(value).trim(), 10);
+  if (!Number.isFinite(n) || n < 0) {
+    return fallback;
+  }
+  return n;
+}
 
 @Controller('api-socket/chats')
 export class ChatsController {
   constructor(
     private readonly messagesService: MessagesService,
     private readonly chatGateway: ChatGateway,
+    private readonly liveChatEscalationMail: LiveChatEscalationMailService,
   ) {
     // console.log('✅ ChatsController initialized - Route: /api-socket/chats');
   }
@@ -81,6 +95,13 @@ export class ChatsController {
             mediaData: initialMessage.media_data,
           };
           this.chatGateway.broadcastNewMessage(chatSessionId, transformedMessage);
+
+          void this.liveChatEscalationMail.maybeNotifyEscalation({
+            chatSessionId,
+            body: initialMessage.body || '',
+            clientName: body.name || body.user_name || 'Client',
+            fromNumber,
+          });
         }
       }
 
@@ -146,9 +167,14 @@ export class ChatsController {
 
       const fromNumber = existingMessages.messages[0].from_number;
 
-      // Determine direction based on who is sending (client or agent)
-      const isFromClient = body.from === 'client' || !body.agent_id;
-      const direction = isFromClient ? Direction.INCOMING : Direction.OUTGOING;
+      /**
+       * Visitor/widget (folder `clientarea`): `from: 'client'`. Panel agent `chat_v2` LiveChatDetail: `from: 'agent'` + `agent_id`.
+       * Email eskalasi hanya dijalankan untuk pesan klien — tidak saat Anda mengetik dari layar agent.
+       */
+      const explicitAgent = body.from === 'agent';
+      const explicitClient = body.from === 'client';
+      const isFromClient =
+        explicitClient || (!explicitAgent && !body.agent_id);
 
       // Handle file upload if file exists (from FormData)
       // OR handle file data if sent as JSON (already uploaded)
@@ -274,6 +300,13 @@ export class ChatsController {
           mediaData: msg.media_data,
         }));
         this.chatGateway.broadcastMessagesUpdated(chatId, transformedMessages);
+
+        void this.liveChatEscalationMail.maybeNotifyEscalation({
+          chatSessionId: chatId,
+          body: message.body || '',
+          clientName: body.name || body.user_name || message.name || 'Client',
+          fromNumber,
+        });
       } else {
         // Message from agent (outgoing) – hanya turunkan assigned_to dari pesan yang ada.
         // Kirim pesan tidak auto-assign; assigned_to hanya terisi dari assign eksplisit (assign to me).
@@ -502,13 +535,20 @@ export class ChatsController {
     @Res() res?: Response,
   ) {
     try {
-      console.log('📋 Getting list of chats:', { status, assignedTo, limit, offset });
+      const limitN = parseQueryInt(limit, 50);
+      const offsetN = parseQueryInt(offset, 0);
+      console.log('📋 Getting list of chats:', {
+        status,
+        assignedTo,
+        limit: limitN,
+        offset: offsetN,
+      });
 
       const { chats, total } = await this.messagesService.getDistinctChats({
         chat_status: status,
         assigned_to: assignedTo,
-        limit: limit ? parseInt(limit.toString()) : 50,
-        offset: offset ? parseInt(offset.toString()) : 0,
+        limit: limitN,
+        offset: offsetN,
       });
 
       return res.status(HttpStatus.OK).json({
@@ -516,8 +556,8 @@ export class ChatsController {
         data: {
           chats,
           total,
-          limit: limit ? parseInt(limit.toString()) : 50,
-          offset: offset ? parseInt(offset.toString()) : 0,
+          limit: limitN,
+          offset: offsetN,
         },
       });
     } catch (error) {

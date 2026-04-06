@@ -5,12 +5,13 @@ import { MessagesController } from './messages.controller';
 import { BackendMessage } from './entities/backend-message.entity';
 import { ChatsController, ChatViewController } from './chats.controller';
 import { ChatGateway } from './chat.gateway';
+import { LiveChatEscalationMailService } from './live-chat-escalation-mail.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([BackendMessage])],
   controllers: [MessagesController, ChatsController, ChatViewController],
-  providers: [MessagesService, ChatGateway],
-  exports: [MessagesService, ChatGateway],
+  providers: [MessagesService, ChatGateway, LiveChatEscalationMailService],
+  exports: [MessagesService, ChatGateway, LiveChatEscalationMailService],
 })
 export class MessagesModule {
   constructor() {

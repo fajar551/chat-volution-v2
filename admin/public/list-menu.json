@@ -182,6 +182,15 @@
         ]
     },
     {
+        "menu_define":"multi_recipient_mail",
+        "main_menu":"Kirim Email (multi)",
+        "link":"/multi-recipient-mail",
+        "icon":"fas fa-envelope-open-text",
+        "roles":"['2']",
+        "haveChildren":false,
+        "children":null
+    },
+    {
         "menu_define":"operational",
         "main_menu":"Operational",
         "link":"javascript:void(0);",

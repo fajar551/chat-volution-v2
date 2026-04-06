@@ -50,6 +50,11 @@ if (Boolean(window.socket)) {
                         elAvatar.src = !avatar ? avatarDummy : avatar;
                     }
 
+                    /* Sembunyikan overlay .page-loader (layout app-chat); halaman tanpa dashboard.js/welcome.js tidak tertahan spinner */
+                    if (typeof $ !== "undefined") {
+                        $(".page-loader").fadeOut(500);
+                    }
+
                     return true;
                 }
             })

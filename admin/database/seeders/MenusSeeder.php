@@ -295,6 +295,14 @@ class MenusSeeder extends Seeder
                 ]
             ],
             [
+                'main_menu' => 'Kirim Email (multi)',
+                'link' => '/multi-recipient-mail',
+                'icon' => 'fas fa-envelope-open-text',
+                'haveChildren' => false,
+                'with_params' => false,
+                'children' => null,
+            ],
+            [
                 'main_menu' => "Setup",
                 'link' => 'javascript:void(0)',
                 'icon' => "fas fa-cogs",

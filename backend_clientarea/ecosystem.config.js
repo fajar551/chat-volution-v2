@@ -1,7 +1,21 @@
+/**
+ * PM2: jalankan dari folder backend_clientarea (Nest memuat .env lewat ConfigModule).
+ *
+ *   cd backend_clientarea
+ *   npm run build
+ *   pm2 start ecosystem.config.js
+ *   pm2 save
+ *
+ * Isi .env: LIVE_CHAT_ESCALATION_ADMIN_API_URL, LIVE_CHAT_ESCALATION_ADMIN_API_SECRET,
+ * opsional LIVE_CHAT_ESCALATION_TO dan LIVE_CHAT_APP_BASE_URL.
+ * Email eskalasi live chat tidak pakai nodemailer di Nest — hanya HTTP ke Laravel admin.
+ */
+
 module.exports = {
   apps: [
     {
       name: 'backend-clientarea',
+      cwd: __dirname,
       script: 'dist/main.js',
       instances: 1,
       exec_mode: 'fork',
@@ -20,4 +34,3 @@ module.exports = {
     },
   ],
 };
-

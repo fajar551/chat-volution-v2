@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { getHeader, nativeHttpRequest } from '../common/native-http.util';
 
 const OPENAI_BASE = 'https://api.openai.com/v1';
 const ASSISTANTS_BETA = 'assistants=v2';
@@ -22,7 +23,7 @@ export class OpenaiProxyService {
     const api_key = first?.api_key ? String(first.api_key).trim() : '';
     return { api_key, assistant_id: OPENAI_ASSISTANT_ID };
   }
-
+  
   async generateResponse(
     chatId: string,
     userMessage: string,
@@ -48,7 +49,7 @@ export class OpenaiProxyService {
       };
     }
 
-    const headers = {
+    const headers: Record<string, string> = {
       Authorization: `Bearer ${api_key}`,
       'Content-Type': 'application/json',
       'OpenAI-Beta': ASSISTANTS_BETA,
@@ -58,25 +59,30 @@ export class OpenaiProxyService {
       let threadId = this.threadsByChatId[chatId];
 
       if (!threadId) {
-        const threadRes = await fetch(`${OPENAI_BASE}/threads`, {
+        const threadRes = await nativeHttpRequest(`${OPENAI_BASE}/threads`, {
           method: 'POST',
           headers,
           body: JSON.stringify({}),
         });
-        if (!threadRes.ok) {
-          const errData = await threadRes.json().catch(() => ({}));
+        if (threadRes.statusCode < 200 || threadRes.statusCode >= 300) {
+          let errData: { error?: { message?: string } } = {};
+          try {
+            errData = JSON.parse(threadRes.body) as typeof errData;
+          } catch {
+            /* ignore */
+          }
           return {
             error: 'THREAD_ERROR',
             message: errData.error?.message || 'Gagal membuat thread',
             details: errData,
           };
         }
-        const threadData = await threadRes.json();
+        const threadData = JSON.parse(threadRes.body) as { id: string };
         threadId = threadData.id;
         this.threadsByChatId[chatId] = threadId;
       }
 
-      const addMsgRes = await fetch(
+      const addMsgRes = await nativeHttpRequest(
         `${OPENAI_BASE}/threads/${threadId}/messages`,
         {
           method: 'POST',
@@ -87,8 +93,13 @@ export class OpenaiProxyService {
           }),
         },
       );
-      if (!addMsgRes.ok) {
-        const errData = await addMsgRes.json().catch(() => ({}));
+      if (addMsgRes.statusCode < 200 || addMsgRes.statusCode >= 300) {
+        let errData: { error?: { message?: string } } = {};
+        try {
+          errData = JSON.parse(addMsgRes.body) as typeof errData;
+        } catch {
+          /* ignore */
+        }
         return {
           error: 'MESSAGE_ERROR',
           message: errData.error?.message || 'Gagal menambah pesan',
@@ -96,16 +107,24 @@ export class OpenaiProxyService {
         };
       }
 
-      const runRes = await fetch(`${OPENAI_BASE}/threads/${threadId}/runs`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ assistant_id: assistantId }),
-      });
-      if (!runRes.ok) {
-        const errData = await runRes.json().catch(() => ({}));
-        const status = runRes.status;
+      const runRes = await nativeHttpRequest(
+        `${OPENAI_BASE}/threads/${threadId}/runs`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ assistant_id: assistantId }),
+        },
+      );
+      if (runRes.statusCode < 200 || runRes.statusCode >= 300) {
+        let errData: { error?: { message?: string } } = {};
+        try {
+          errData = JSON.parse(runRes.body) as typeof errData;
+        } catch {
+          /* ignore */
+        }
+        const status = runRes.statusCode;
         if (status === 429) {
-          const retryAfter = runRes.headers.get('retry-after') || '60';
+          const retryAfter = getHeader(runRes.headers, 'retry-after') || '60';
           return {
             error: 'RATE_LIMIT',
             message: `Terlalu banyak permintaan. Coba lagi setelah ${retryAfter} detik.`,
@@ -125,7 +144,7 @@ export class OpenaiProxyService {
         };
       }
 
-      const runData = await runRes.json();
+      const runData = JSON.parse(runRes.body) as { id?: string };
       const runId = runData?.id;
       if (!runId) return { error: 'RUN_ERROR', message: 'run.id tidak ada' };
 
@@ -134,14 +153,14 @@ export class OpenaiProxyService {
       let runStatus: { status?: string; last_error?: { message?: string } };
 
       while (attempts < maxAttempts) {
-        const statusRes = await fetch(
+        const statusRes = await nativeHttpRequest(
           `${OPENAI_BASE}/threads/${threadId}/runs/${runId}`,
           { method: 'GET', headers },
         );
-        if (!statusRes.ok) {
+        if (statusRes.statusCode < 200 || statusRes.statusCode >= 300) {
           return { error: 'STATUS_ERROR', message: 'Gagal cek status run' };
         }
-        runStatus = await statusRes.json();
+        runStatus = JSON.parse(statusRes.body) as typeof runStatus;
 
         if (runStatus.status === 'completed') break;
         if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
@@ -158,16 +177,21 @@ export class OpenaiProxyService {
         return { error: 'TIMEOUT', message: 'Timeout menunggu run selesai' };
       }
 
-      const messagesRes = await fetch(
+      const messagesRes = await nativeHttpRequest(
         `${OPENAI_BASE}/threads/${threadId}/messages`,
         { method: 'GET', headers },
       );
-      if (!messagesRes.ok) {
+      if (messagesRes.statusCode < 200 || messagesRes.statusCode >= 300) {
         return { error: 'MESSAGES_ERROR', message: 'Gagal ambil messages' };
       }
-      const messagesData = await messagesRes.json();
+      const messagesData = JSON.parse(messagesRes.body) as {
+        data?: Array<{
+          role: string;
+          content?: Array<{ text?: { value?: string } }>;
+        }>;
+      };
       const list = messagesData.data || [];
-      const assistantMessages = list.filter((m: { role: string }) => m.role === 'assistant');
+      const assistantMessages = list.filter((m) => m.role === 'assistant');
       if (assistantMessages.length > 0) {
         const latest = assistantMessages[0];
         const content = latest.content?.[0];
@@ -179,7 +203,7 @@ export class OpenaiProxyService {
       console.error('OpenaiProxyService error:', err);
       return {
         error: 'UNKNOWN',
-        message: err?.message || 'Gagal generate respons AI.',
+        message: err instanceof Error ? err.message : 'Gagal generate respons AI.',
       };
     }
   }

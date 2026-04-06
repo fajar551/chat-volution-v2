@@ -1,0 +1,46 @@
+{
+  "info": {
+    "name": "Chatvolution — Admin internal multi-recipient mail",
+    "description": "POST ke Laravel admin (sama dipakai Nest LIVE_CHAT_ESCALATION_ADMIN_API_URL).\n\nSet collection variable `admin_api_secret` = nilai MULTI_RECIPIENT_MAIL_API_SECRET di admin/.env",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://admin-chat.genio.id"
+    },
+    {
+      "key": "admin_api_secret",
+      "value": "GANTI_DENGAN_MULTI_RECIPIENT_MAIL_API_SECRET"
+    }
+  ],
+  "item": [
+    {
+      "name": "Internal multi-recipient mail (JSON)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_api_secret}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipients\": \"fajarhabibzaelani@gmail.com,fajararrahman551@gmail.com\",\n  \"subject\": \"Tes Postman / curl internal mail\",\n  \"body\": \"Jika Anda terima ini, endpoint admin dan secret sudah benar.\"\n}"
+        },
+        "url": "{{base_url}}/api/internal/multi-recipient-mail",
+        "description": "401 = secret salah/kosong di server. 503 = MULTI_RECIPIENT_MAIL_API_SECRET tidak di-set di Laravel. 422 = validasi (email tidak valid, subjek/body kosong)."
+      },
+      "response": []
+    }
+  ]
+}

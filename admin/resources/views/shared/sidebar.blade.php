@@ -62,6 +62,7 @@
                 </a>
                 <ul class="sub-menu" aria-expanded="false">
                     <li><a href="/broadcast-message">Broadcast Message</a></li>
+                    <li><a href="/multi-recipient-mail">Kirim Email (multi)</a></li>
                     <li><a href="/contacts">Contacts</a></li>
                 </ul>
             </li>

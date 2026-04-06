@@ -88,4 +88,13 @@ return [
         'redirect' => env('YOUTUBE_REDIRECT_URI')
       ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kirim email multi-penerima dari admin / backend eksternal
+    |--------------------------------------------------------------------------
+    */
+    'multi_mail' => [
+        'api_secret' => env('MULTI_RECIPIENT_MAIL_API_SECRET'),
+    ],
+
 ];
