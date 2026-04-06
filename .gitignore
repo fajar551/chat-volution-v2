@@ -1,5 +1,13 @@
 node_modules/
 **/node_modules/
+
+# Sesi whatsapp-web.js (jangan di-commit)
+wa-socket-v1/.wwebjs_auth/
+wa-socket-v2/.wwebjs_auth/
+wa-socket-v3/.wwebjs_auth/
+wa-socket-v4/.wwebjs_auth/
+wa-socket-v5/.wwebjs_auth/
+wa-socket-v6/.wwebjs_auth/
 *.zip
 .DS_Store
 Thumbs.db
