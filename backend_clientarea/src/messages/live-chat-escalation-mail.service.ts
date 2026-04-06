@@ -104,7 +104,7 @@ export class LiveChatEscalationMailService {
     if (!matchesLiveChatEscalationKeywords(text)) return;
 
     this.logger.log(
-      `Eskalasi: kata kunci terdeteksi pada pesan klien (session ${payload.chatSessionId}), memanggil admin Laravel…`,
+      `Eskalasi tim teknis: kata kunci (tim teknis / manusia) pada pesan klien (session ${payload.chatSessionId}), memanggil admin Laravel…`,
     );
 
     const toRaw =
